@@ -23,12 +23,13 @@ struct config_t {
   char     key_name[NUM_OF_KEYS][16];
   char     tel_name[NUM_OF_PHONES][PHONE_LEN];
   uint16_t SMS;
-  uint8_t  global_tel_num; 
+  uint8_t  global_tel_num;                      // *** not used
   uint16_t group[ALR_GROUPS];
   char     group_name[ALR_GROUPS][16];
   uint8_t  tel[NUM_OF_PHONES];
-  uint8_t  auth[ALR_AUTH_UNITS];
-  uint8_t  auto_arm;  // minutes
+//  uint8_t  auth[ALR_AUTH_UNITS];                // *** not used
+  uint8_t  auto_arm;    // minutes
+  uint8_t  open_alarm;  // minutes
 } conf;
 
 void setDefault(){
@@ -44,7 +45,7 @@ void setDefault(){
   conf.tel_num[5][0] = '-';conf.tel_num[5][1] = 0;
   conf.tel_num[6][0] = '-';conf.tel_num[6][1] = 0;
   conf.tel_num[7][0] = '-';conf.tel_num[7][1] = 0;
-  conf.tel_name[0][0] = 'D'; conf.tel_name[0][1] = 'e'; conf.tel_name[0][2] = 'f'; conf.tel_name[0][3] = 'a'; conf.tel_name[0][4] = 'u';conf.tel_name[0][5] = 'l';conf.tel_name[0][6] = 't';conf.tel_name[0][7] = 0;
+  conf.tel_name[0][0] = '-';conf.tel_name[0][1] = 0;
   conf.tel_name[1][0] = '-';conf.tel_name[1][1] = 0;
   conf.tel_name[2][0] = '-';conf.tel_name[2][1] = 0;
   conf.tel_name[3][0] = '-';conf.tel_name[3][1] = 0;
@@ -88,7 +89,7 @@ void setDefault(){
 //                 |||||- Free
 //                 ||||||- Free
 //                 |||||||- Free
-//                 ||||||||- Free         
+//                 ||||||||- Still open alarm         
 //                 ||||||||         |- Auto arm zone
 //                 ||||||||         |||- Auth time
 //                 ||||||||         |||- 0-3x the default time
@@ -111,14 +112,14 @@ void setDefault(){
   conf.zone[10] = B00000000 << 8 | B00000000; // Digital sensor 4
   conf.zone[11] = B00000000 << 8 | B00000000; // Tamper
 
-//                  |||||- Address of authentization unit
-//                  |||||  0  = master/not used
-//                  |||||  1  .. 14 wired
-//                  |||||  15 .. 31 wireless
-//                  |||||  32 = all/any units  
-//                  |||||||| - Tel. # to inform
-//                  ||||||||   0 = no #
-//                  ||||||||   7 = all #    
+//                  |- Free
+//                  ||- Free
+//                  |||- Free
+//                  ||||- Free
+//                  |||||- Free
+//                  ||||||- Free
+//                  |||||||- Free
+//                  ||||||||- Free
 //                  ||||||||         |- Free
 //                  ||||||||         ||- Free
 //                  ||||||||         |||- Free
@@ -144,7 +145,22 @@ void setDefault(){
   conf.group[13] = B00000000 << 8 | B00000000; 
   conf.group[14] = B00000000 << 8 | B00000000; 
   conf.group[15] = B00000000 << 8 | B00000000; 
-
+  conf.group_name[ 0][0] = '-';conf.zone_name[0][1] = 0;
+  conf.group_name[ 1][0] = '-';conf.zone_name[1][1] = 0;
+  conf.group_name[ 2][0] = '-';conf.zone_name[2][1] = 0;
+  conf.group_name[ 3][0] = '-';conf.zone_name[3][1] = 0;
+  conf.group_name[ 4][0] = '-';conf.zone_name[4][1] = 0;
+  conf.group_name[ 5][0] = '-';conf.zone_name[5][1] = 0;
+  conf.group_name[ 6][0] = '-';conf.zone_name[6][1] = 0;
+  conf.group_name[ 7][0] = '-';conf.zone_name[7][1] = 0;
+  conf.group_name[ 8][0] = '-';conf.zone_name[8][1] = 0;
+  conf.group_name[ 9][0] = '-';conf.zone_name[9][1] = 0;
+  conf.group_name[10][0] = '-';conf.zone_name[10][1] = 0;
+  conf.group_name[11][0] = '-';conf.zone_name[11][1] = 0;
+  conf.group_name[12][0] = '-';conf.zone_name[12][1] = 0;
+  conf.group_name[13][0] = '-';conf.zone_name[13][1] = 0;
+  conf.group_name[14][0] = '-';conf.zone_name[14][1] = 0;
+  conf.group_name[15][0] = '-';conf.zone_name[15][1] = 0;
 
   conf.ee_pos = 0;
 
@@ -152,7 +168,7 @@ void setDefault(){
 //            |- 
 //            ||- 
 //            |||- 
-//            ||||- 
+//            ||||- Open Alarm
 // System     |||||- Battery state
 // System     ||||||- AC state
 // System     |||||||- Configration saved
