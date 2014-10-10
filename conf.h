@@ -168,7 +168,7 @@ void setDefault(){
 //            |- 
 //            ||- 
 //            |||- 
-//            ||||- Open Alarm
+// Keys       ||||- Open Alarm
 // System     |||||- Battery state
 // System     ||||||- AC state
 // System     |||||||- Configration saved
@@ -182,7 +182,7 @@ void setDefault(){
 // Keys       ||||||||         ||||||- Armed/Auto armed
 // Keys       ||||||||         |||||||- Disarmed
 // Keys       ||||||||         ||||||||- Undefined Key
-  conf.SMS = B11000100 << 8 | B01000001;
+  conf.SMS = B00000000 << 8 | B00000000;
   conf.global_tel_num = 0;
 }  
 

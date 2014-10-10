@@ -116,10 +116,15 @@
 	P(text_sensor)      = "sensor";
 	P(text_Sensor)      = "Sensor";
 	P(text_Value)       = "Value";
-	P(text_degC)        = "s";
+	P(text_degC)        = "°C";
  	P(text_Open)   = "Open";
+ 	P(text_open)   = "open";
 	P(text_OUT1)   = "OUT 1";
 	P(text_OUT2)   = "OUT 2";
+	P(text_MQTT)   = "MQTT";
+	P(text_OHS)    = "OHS";
+	P(text_slash)  = "/";
+	P(text_publish) = "publish";
 
     P(text_MRF)    = "requested, failed";
     P(text_MNRF)   = "not requested, failed";
