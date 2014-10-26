@@ -23,6 +23,8 @@
 //     OUT1 (D 14) PD6 20|        |21  PD7 (D 15) OUT2
 //                       +--------+
 //
+#define WEB_SERIAL_DEBUGGING 1
+
 #include <NilRTOS.h>
 
 #include <DigitalIO.h>
@@ -30,12 +32,10 @@
 #include "SPI.h"
 
 #include "Ethernet.h"
-// CHANGE THIS TO YOUR OWN UNIQUE VALUE
-static uint8_t mac[6] = { 0x02, 0xAA, 0xBB, 0xCC, 0x00, 0x22 };
-// CHANGE THIS TO MATCH YOUR HOST NETWORK
-IPAddress  our_ip( 10,  10,  10, 184); 
-IPAddress gateway( 10,  10,  10, 254); 
-IPAddress  subnet(255, 255, 255,   0);
+static uint8_t mac[6] = { 0x02, 0xAA, 0xBB, 0xCC, 0x00, 0x22 };  // CHANGE THIS TO YOUR OWN UNIQUE VALUE
+IPAddress  our_ip( 10,  10,  10, 184);  // CHANGE THIS TO MATCH YOUR HOST NETWORK
+IPAddress gateway( 10,  10,  10, 254);  // CHANGE THIS TO MATCH YOUR HOST NETWORK
+IPAddress  subnet(255, 255, 255,   0);  // CHANGE THIS TO MATCH YOUR HOST NETWORK
 // NTP
 IPAddress  timeIP( 81,   0, 239, 181);  // ntp.globe.cz 
 #include <EthernetUdp.h>                      //
@@ -66,7 +66,6 @@ inline Print &operator <<(Print &obj, T arg)
 byte MQTTIP[]     = { 10,  10,  10, 133};
 char str_MQTT_dev[] = "OHS"; // device name
 EthernetClient MQTTClient;
-
 
 //#define PINCHG_IRQ 1
 #include <RFM12B.h>
@@ -110,13 +109,10 @@ RS485_msg RX_msg, TX_msg;
 // Global configuration for in chip EEPROM
 #include <avr/eeprom.h>
 
-// Use tiny unbuffered NilRTOS NilSerial library.
-//#include <NilSerial.h>
-
 #include <NilGSM.h>
-#define Serial GSM                     // redefine GSM as standard Serial 0
+#define Serial GSM  // redefine GSM as standard Serial 0
 
-// FIFO
+// logger FIFO
 #include <NilFIFO.h>
 // Type for a data record.
 struct Record_t {
@@ -124,23 +120,24 @@ struct Record_t {
 };
 NilFIFO<Record_t, 9> fifo;
 
-// 
+#if WEB_SERIAL_DEBUGGING 
 #include <WebSerial.h>
+#endif 
+
 
 // Global configuration and default setting
 #include <conf.h>
 
 // ADC Alarm settings refer to voltage divider and input voltage level
 // values set for resistors 10k Tamper, 22k PIR
-#define ALR_OK_LOW     100
-#define ALR_OK         150
-#define ALR_OK_HI      200
+#define ALR_OK_LOW     150
+#define ALR_OK         200
+#define ALR_OK_HI      250
 #define ALR_PIR_LOW    -50
 #define ALR_PIR        0
 #define ALR_PIR_HI     50
-#define ALR_TAMP_LOW   -260
-#define ALR_TAMP_HI    -160
-
+#define ALR_TAMP_LOW   -270
+#define ALR_TAMP_HI    -170
 
 struct alarm_event_t {
   uint8_t zone;
@@ -291,6 +288,7 @@ uint8_t sendData(uint8_t unit, char *data, uint8_t length){
   TX_msg.ctrl = FLAG_DTA;
   TX_msg.data_length = length;
   memcpy(TX_msg.buffer, data, TX_msg.data_length);
+  #if WEB_SERIAL_DEBUGGING 
   WS.print("Data to unit: "); WS.print(TX_msg.address);
   WS.print(", len: "); WS.println(TX_msg.data_length);
   for (uint8_t i=0; i < TX_msg.data_length; i++){
@@ -298,6 +296,7 @@ uint8_t sendData(uint8_t unit, char *data, uint8_t length){
     WS.print(F(" "));
   }
   WS.println();
+  #endif
   return RS485.msg_write(&TX_msg);
 }
 
@@ -306,9 +305,9 @@ uint8_t sendCmdToGrp(uint8_t grp, uint8_t cmd) {
   int8_t  _resp, _try;
   uint8_t _cnt = 0;
   // Go throug all units
-  WS.print("Grp cmd: ");
-  WS.print(cmd);
-  WS.print(", unit: ");
+  //WS.print("Grp cmd: ");
+  //WS.print(cmd);
+  //WS.print(", unit: ");
   for (int8_t i=0; i < units; i++){
     if (unit[i].setting & B1) {                       // Auth. unit is enabled ?
       if (((unit[i].setting >> 1) & B1111) == grp) {  // Auth. unit belong to group
@@ -322,12 +321,11 @@ uint8_t sendCmdToGrp(uint8_t grp, uint8_t cmd) {
           nilThdSleepMilliseconds(10);
         } while (_resp != 1 || _try < 5);
         if (_resp) _cnt++;
-        WS.print(unit[i].address); WS.print(":"); WS.print(_resp); WS.print(", ");
-        
+        //WS.print(unit[i].address); WS.print(":"); WS.print(_resp); WS.print(", ");
       }
     }
   }
-  WS.println();
+  //WS.println();
   return _cnt;
 }
 
@@ -405,6 +403,7 @@ PubSubClient client(MQTTIP, 1883, callback, MQTTClient);
 // W E B   P A G E S              W E B   P A G E S                W E B   P A G E S  
 // *********************************************************************************
 
+#if WEB_SERIAL_DEBUGGING 
 void webDebug(WebServer &server, WebServer::ConnectionType type, char *url_tail, bool tail_complete) {
   if (type == WebServer::POST) {
     // no post
@@ -424,6 +423,7 @@ void webDebug(WebServer &server, WebServer::ConnectionType type, char *url_tail,
     server.printP(htmlFoot);
   }
 }
+#endif
 
 void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, bool tail_complete) {
   if (type == WebServer::POST) {
@@ -455,9 +455,7 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
     server.printP(html_table); 
     server.printP(html_tr); server.printP(html_td);
     server.printP(text_Time); server.printP(html_e_td); server.printP(html_td);
-    server.printP(text_sesp);
-    server << time_now.day(); server.printP(text_dot); server << time_now.month(); server.printP(text_dot); server << time_now.year(); server.printP(text_space);
-    server << time_now.hour(); server.printP(text_semic); server << time_now.minute(); server.printP(text_semic); server << time_now.second(); server.printP(text_space);
+    server.printP(text_sesp); server.print((char*)time_now.formatedDateTime());
     server.printP(html_e_td); server.printP(html_e_tr);
 
     server.printP(html_tr); server.printP(html_td); server.printP(html_e_td); server.printP(html_td);
@@ -468,18 +466,12 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
 
     server.printP(html_tr); server.printP(html_td);
     server.printP(text_Started); server.printP(html_e_td); server.printP(html_td);
-    server.printP(text_sesp);
-    server << time_started.day(); server.printP(text_dot); server << time_started.month(); server.printP(text_dot); server << time_started.year(); server.printP(text_space);
-    server << time_started.hour(); server.printP(text_semic); server << time_started.minute(); server.printP(text_semic); server << time_started.second(); server.printP(text_space);
+    server.printP(text_sesp); server.print((char*)time_started.formatedDateTime());        
     server.printP(html_e_td); server.printP(html_e_tr);
     server.printP(html_tr); server.printP(html_td);
     server.printP(text_Uptime); server.printP(html_e_td); server.printP(html_td);
-    server.printP(text_sesp);
-    long _time = (time_now.get()-time_started.get());
-    uint8_t _ss = (_time % 60); _time /= 60;
-    uint8_t _mm = _time % 60; _time /= 60;
-    uint16_t _hh = _time % 24;
-    server.print(_time / 24); server.printP(text_comma); server.printP(text_space); server.print(_hh); server.printP(text_semic); server.print(_mm); server.printP(text_semic); server.print(_ss);
+    time_now = (time_now.get()-time_started.get());
+    server.printP(text_sesp); server.print((char*)time_now.formatedUpTime());
     server.printP(html_e_td); server.printP(html_e_tr);
     server.printP(html_tr); server.printP(html_td);
     server.printP(text_PwrSp); server.printP(html_e_td); server.printP(html_td);
@@ -519,6 +511,7 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
     server << (GSMstrength*3); server.printP(text_percent); 
     server.printP(html_e_td); server.printP(html_e_tr);
     server.printP(html_e_table);
+
 
     server.printP(html_e_p);
     server.printP(htmlFoot);
@@ -1056,13 +1049,8 @@ void webSetKey(WebServer &server, WebServer::ConnectionType type, char *url_tail
           else value[ii*2] = value[ii*2] - '0';
           if (value[ii*2+1] > '9') value[ii*2+1] = value[ii*2+1] - 'A' + 10;
           else value[ii*2+1] = value[ii*2+1] - '0';
-            //Serial.print(value[ii*2],HEX);
-            //Serial.print('+');
-            //Serial.print(value[ii*2+1],HEX);
-            //Serial.print('=');
           conf.key[webKey][ii] = value[ii*2] << 4;
           conf.key[webKey][ii] = conf.key[webKey][ii] + value[ii*2+1];
-            //Serial.println(conf.key[webKey][ii],HEX);
         } 
         conf.key[webKey][8] = 0;
         break;
@@ -1807,9 +1795,9 @@ NIL_THREAD(SensorThread, arg) {
               break;
             } 
           }
-        //WS.print(val);
         _group = (conf.zone[i] >> 1) & B1111; // set group
         // Decide 
+        //WS.print(F("dec: ")); WS.println((int16_t)(val-BatteryLevel));
         switch((int16_t)(val-BatteryLevel)){
           case ALR_OK_LOW ... ALR_OK_HI:
             // All is OK no action
@@ -1833,6 +1821,7 @@ NIL_THREAD(SensorThread, arg) {
             }
             zone[i].last_PIR = nilTimeNow();    // update current timestamp
             break;
+            /*
             case ALR_TAMP_LOW ... ALR_TAMP_HI:
             //WS.print(F(" TAMPER G:"));
             //WS.print(_group);
@@ -1849,6 +1838,7 @@ NIL_THREAD(SensorThread, arg) {
               if (!(conf.group[_group] & B1)) {_tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = 48+_group; _tmp[3] = 0; fifoPut(_tmp);}
             }
             break;       
+            */
             default: 
             // Line is cut or short
             //WS.print(F(" UNK G:"));
@@ -2380,7 +2370,7 @@ NIL_THREAD(ServiceThread, arg) {
         if (GSMisAlive) {
           //WS.println("gsm alive");
           if (!GSMsetSMS) {
-            _resp = Serial.ATsendCmd(AT_CLIP_ON);             // CLI On
+            //_resp = Serial.ATsendCmd(AT_CLIP_ON);             // CLI On
             GSMsetSMS = Serial.ATsendCmd(AT_set_sms_to_text); // set modem to text SMS format
           }
           _resp = Serial.ATsendCmdWR(AT_registered, _text, 3);
@@ -2602,7 +2592,9 @@ NIL_THREAD(Thread9, arg) {
   webserver.addCommand("group", &webSetGroup);
   webserver.addCommand("set", &webSetGlobal);
   webserver.addCommand("phone", &webSetPhone);
+  #if WEB_SERIAL_DEBUGGING 
   webserver.addCommand("debug", &webDebug);
+  #endif
   webserver.addCommand("auth", &webSetAuth);
   webserver.addCommand("sens", &webSetSens);
   webserver.addCommand("key", &webSetKey);
