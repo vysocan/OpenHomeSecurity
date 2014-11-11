@@ -1,13 +1,23 @@
 #ifndef defaults_h
 #define defaults_h
 
-#define ALR_ZONES      12        // Active zones
+#define ALR_ZONES      13        // Active zones
 #define NUM_OF_KEYS    8         // max number of keys
 #define KEY_LEN        8         // key 
 #define NUM_OF_PHONES  8         // max number of phones
 #define PHONE_LEN      16        // phone name 
 #define ALR_GROUPS     16        // Groups
-#define ALR_AUTH_UNITS 14        // 
+
+// ADC Alarm settings refer to voltage divider and input voltage level
+// values set for resistors 10k Tamper, 22k PIR
+#define ALR_OK_LOW     150
+#define ALR_OK         200
+#define ALR_OK_HI      250
+#define ALR_PIR_LOW    -50
+#define ALR_PIR        0
+#define ALR_PIR_HI     50
+#define ALR_TAMP_LOW   -270
+#define ALR_TAMP_HI    -170
 
 #define VERSION 100
 // Global configuration in chip EEPROM
@@ -110,7 +120,8 @@ void setDefault(){
   conf.zone[ 8] = B00000000 << 8 | B00000000; // Digital sensor 2
   conf.zone[ 9] = B00000000 << 8 | B00000000; // Digital sensor 3
   conf.zone[10] = B00000000 << 8 | B00000000; // Digital sensor 4
-  conf.zone[11] = B00000000 << 8 | B00000000; // Tamper
+  conf.zone[11] = B00000000 << 8 | B00000000; // Digital sensor 5
+  conf.zone[12] = B00000000 << 8 | B00000000; // Tamper
 
 //                  |- Free
 //                  ||- Free

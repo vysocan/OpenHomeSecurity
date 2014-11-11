@@ -113,6 +113,8 @@
 	P(text_re)     = "re";
 	P(text_iButton)= "iButton";
 	P(text_Temperature) = "Temperature";
+	P(text_Humidity)    = "Humidity";
+	P(text_Pressure)    = "Pressure";
 	P(text_sensor)      = "sensor";
 	P(text_Sensor)      = "Sensor";
 	P(text_Value)       = "Value";
