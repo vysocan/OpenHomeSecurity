@@ -118,15 +118,18 @@
 	P(text_sensor)      = "sensor";
 	P(text_Sensor)      = "Sensor";
 	P(text_Value)       = "Value";
-	P(text_degC)        = "°C";
+	P(text_degC)        = " °C";
+	P(text_mBar)        = " mBar";
  	P(text_Open)   = "Open";
  	P(text_open)   = "open";
 	P(text_OUT1)   = "OUT 1";
 	P(text_OUT2)   = "OUT 2";
 	P(text_MQTT)   = "MQTT";
+	P(text_failed)   = "failed";
 	P(text_OHS)    = "OHS";
 	P(text_slash)  = "/";
 	P(text_publish) = "publish";
+	P(text_Radio)  = "Radio";
 
     P(text_MRF)    = "requested, failed";
     P(text_MNRF)   = "not requested, failed";
@@ -142,6 +145,7 @@
 	P(html_F_LOG)   = "<input type='submit' name='p' value='<<'/><input type='submit' name='n' value='now'/><input type='submit' name='f' value='>>'/>";
 	P(html_F_Clear) = "<input type='submit' name='C' value='Clear log'/>";
 	P(html_F_GetNTP)= "<input type='submit' name='T' value='Get NTP time'/>";
+	P(html_F_RR)    = "<input type='submit' name='R' value='Reregister'/>";
 	P(html_e_table) = "</table>";
 	P(html_table)   = "<table>";
 	P(html_e_td)    = "</td>";
@@ -186,6 +190,7 @@
 	"DIV {font-size:12pt}\n"
 	"tr.even {color:#000;background-color:#E9E9E9}\n"
 	"tr.odd {color:#000;background-color:#F5F5F5}\n"
+	"input, select, {height:2em}"
 	"</style></head>\n<body><div>"
 	"<a href='/'>Home</a> "
 	"<a href='set'>Global</a> "

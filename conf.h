@@ -33,13 +33,13 @@ struct config_t {
   char     key_name[NUM_OF_KEYS][16];
   char     tel_name[NUM_OF_PHONES][PHONE_LEN];
   uint16_t SMS;
-  uint8_t  global_tel_num;                      // *** not used
   uint16_t group[ALR_GROUPS];
   char     group_name[ALR_GROUPS][16];
   uint8_t  tel[NUM_OF_PHONES];
-//  uint8_t  auth[ALR_AUTH_UNITS];                // *** not used
   uint8_t  auto_arm;    // minutes
   uint8_t  open_alarm;  // minutes
+  uint8_t  radioKey[17];
+  byte     mqtt_serv_ip[4];
 } conf;
 
 void setDefault(){
@@ -63,6 +63,14 @@ void setDefault(){
   conf.tel_name[5][0] = '-';conf.tel_name[5][1] = 0;
   conf.tel_name[6][0] = '-';conf.tel_name[6][1] = 0;
   conf.tel_name[7][0] = '-';conf.tel_name[7][1] = 0;
+  conf.tel[0] = 0x1E;
+  conf.tel[1] = 0x1E;
+  conf.tel[2] = 0x1E;
+  conf.tel[3] = 0x1E;
+  conf.tel[4] = 0x1E;
+  conf.tel[5] = 0x1E;
+  conf.tel[6] = 0x1E;
+  conf.tel[7] = 0x1E;
   conf.zone_name[ 0][0] = '-';conf.zone_name[0][1] = 0;
   conf.zone_name[ 1][0] = '-';conf.zone_name[1][1] = 0;
   conf.zone_name[ 2][0] = '-';conf.zone_name[2][1] = 0;
@@ -75,14 +83,15 @@ void setDefault(){
   conf.zone_name[ 9][0] = '-';conf.zone_name[9][1] = 0;
   conf.zone_name[10][0] = '-';conf.zone_name[10][1] = 0;
   conf.zone_name[11][0] = '-';conf.zone_name[11][1] = 0;
-  conf.key[0][0] = '-';conf.key[0][1] = 0;
-  conf.key[1][0] = '-';conf.key[1][1] = 0;
-  conf.key[2][0] = '-';conf.key[2][1] = 0;
-  conf.key[3][0] = '-';conf.key[3][1] = 0;
-  conf.key[4][0] = '-';conf.key[4][1] = 0;
-  conf.key[5][0] = '-';conf.key[5][1] = 0;
-  conf.key[6][0] = '-';conf.key[6][1] = 0;
-  conf.key[7][0] = '-';conf.key[7][1] = 0;
+  conf.zone_name[12][0] = '-';conf.zone_name[12][1] = 0;
+  conf.key[0][0] = 0xFF;conf.key[0][1] = 0;
+  conf.key[1][0] = 0xFF;conf.key[1][1] = 0;
+  conf.key[2][0] = 0xFF;conf.key[2][1] = 0;
+  conf.key[3][0] = 0xFF;conf.key[3][1] = 0;
+  conf.key[4][0] = 0xFF;conf.key[4][1] = 0;
+  conf.key[5][0] = 0xFF;conf.key[5][1] = 0;
+  conf.key[6][0] = 0xFF;conf.key[6][1] = 0;
+  conf.key[7][0] = 0xFF;conf.key[7][1] = 0;
   conf.key_name[0][0] = '-';conf.key_name[0][1] = 0;
   conf.key_name[1][0] = '-';conf.key_name[1][1] = 0;
   conf.key_name[2][0] = '-';conf.key_name[2][1] = 0;
@@ -109,19 +118,19 @@ void setDefault(){
 //                 ||||||||         |||||||- 
 //                 ||||||||         ||||||||-  Enabled   
 //                B10000000         00000000
-  conf.zone[ 0] = B10000000 << 8 | B00000000; // Analog sensor 1
-  conf.zone[ 1] = B10000000 << 8 | B00000000; // Analog sensor 2
-  conf.zone[ 2] = B10000000 << 8 | B00000000; // Analog sensor 3
-  conf.zone[ 3] = B10000000 << 8 | B00000000; // Analog sensor 4
-  conf.zone[ 4] = B10000000 << 8 | B00000000; // Analog sensor 5
-  conf.zone[ 5] = B10000000 << 8 | B00000000; // Analog sensor 6
-  conf.zone[ 6] = B10000000 << 8 | B00000000; // Analog sensor 7
-  conf.zone[ 7] = B00000000 << 8 | B00000000; // Digital sensor 1
-  conf.zone[ 8] = B00000000 << 8 | B00000000; // Digital sensor 2
-  conf.zone[ 9] = B00000000 << 8 | B00000000; // Digital sensor 3
-  conf.zone[10] = B00000000 << 8 | B00000000; // Digital sensor 4
-  conf.zone[11] = B00000000 << 8 | B00000000; // Digital sensor 5
-  conf.zone[12] = B00000000 << 8 | B00000000; // Tamper
+  conf.zone[ 0] = B10000000 << 8 | B00011110; // Analog sensor 1
+  conf.zone[ 1] = B10000000 << 8 | B00011110; // Analog sensor 2
+  conf.zone[ 2] = B10000000 << 8 | B00011110; // Analog sensor 3
+  conf.zone[ 3] = B10000000 << 8 | B00011110; // Analog sensor 4
+  conf.zone[ 4] = B10000000 << 8 | B00011110; // Analog sensor 5
+  conf.zone[ 5] = B10000000 << 8 | B00011110; // Analog sensor 6
+  conf.zone[ 6] = B10000000 << 8 | B00011110; // Analog sensor 7
+  conf.zone[ 7] = B00000000 << 8 | B00011110; // Digital sensor 1
+  conf.zone[ 8] = B00000000 << 8 | B00011110; // Digital sensor 2
+  conf.zone[ 9] = B00000000 << 8 | B00011110; // Digital sensor 3
+  conf.zone[10] = B00000000 << 8 | B00011110; // Digital sensor 4
+  conf.zone[11] = B00000000 << 8 | B00011110; // Digital sensor 5
+  conf.zone[12] = B00000000 << 8 | B00011110; // Tamper
 
 //                  |- Free
 //                  ||- Free
@@ -156,22 +165,22 @@ void setDefault(){
   conf.group[13] = B00000000 << 8 | B00000000; 
   conf.group[14] = B00000000 << 8 | B00000000; 
   conf.group[15] = B00000000 << 8 | B00000000; 
-  conf.group_name[ 0][0] = '-';conf.zone_name[0][1] = 0;
-  conf.group_name[ 1][0] = '-';conf.zone_name[1][1] = 0;
-  conf.group_name[ 2][0] = '-';conf.zone_name[2][1] = 0;
-  conf.group_name[ 3][0] = '-';conf.zone_name[3][1] = 0;
-  conf.group_name[ 4][0] = '-';conf.zone_name[4][1] = 0;
-  conf.group_name[ 5][0] = '-';conf.zone_name[5][1] = 0;
-  conf.group_name[ 6][0] = '-';conf.zone_name[6][1] = 0;
-  conf.group_name[ 7][0] = '-';conf.zone_name[7][1] = 0;
-  conf.group_name[ 8][0] = '-';conf.zone_name[8][1] = 0;
-  conf.group_name[ 9][0] = '-';conf.zone_name[9][1] = 0;
-  conf.group_name[10][0] = '-';conf.zone_name[10][1] = 0;
-  conf.group_name[11][0] = '-';conf.zone_name[11][1] = 0;
-  conf.group_name[12][0] = '-';conf.zone_name[12][1] = 0;
-  conf.group_name[13][0] = '-';conf.zone_name[13][1] = 0;
-  conf.group_name[14][0] = '-';conf.zone_name[14][1] = 0;
-  conf.group_name[15][0] = '-';conf.zone_name[15][1] = 0;
+  conf.group_name[ 0][0] = '-';conf.group_name[0][1] = 0;
+  conf.group_name[ 1][0] = '-';conf.group_name[1][1] = 0;
+  conf.group_name[ 2][0] = '-';conf.group_name[2][1] = 0;
+  conf.group_name[ 3][0] = '-';conf.group_name[3][1] = 0;
+  conf.group_name[ 4][0] = '-';conf.group_name[4][1] = 0;
+  conf.group_name[ 5][0] = '-';conf.group_name[5][1] = 0;
+  conf.group_name[ 6][0] = '-';conf.group_name[6][1] = 0;
+  conf.group_name[ 7][0] = '-';conf.group_name[7][1] = 0;
+  conf.group_name[ 8][0] = '-';conf.group_name[8][1] = 0;
+  conf.group_name[ 9][0] = '-';conf.group_name[9][1] = 0;
+  conf.group_name[10][0] = '-';conf.group_name[10][1] = 0;
+  conf.group_name[11][0] = '-';conf.group_name[11][1] = 0;
+  conf.group_name[12][0] = '-';conf.group_name[12][1] = 0;
+  conf.group_name[13][0] = '-';conf.group_name[13][1] = 0;
+  conf.group_name[14][0] = '-';conf.group_name[14][1] = 0;
+  conf.group_name[15][0] = '-';conf.group_name[15][1] = 0;
 
   conf.ee_pos = 0;
 
@@ -194,7 +203,13 @@ void setDefault(){
 // Keys       ||||||||         |||||||- Disarmed
 // Keys       ||||||||         ||||||||- Undefined Key
   conf.SMS = B00000000 << 8 | B00000000;
-  conf.global_tel_num = 0;
+//encryption is OPTIONAL
+//to enable encryption you will need to:
+// - provide a 16-byte encryption KEY (same on all nodes that talk encrypted)
+// - to call .Encrypt(KEY) to start encrypting
+// - to stop encrypting call .Encrypt(NULL)
+  conf.radioKey[0] = '-'; conf.radioKey[1] = 0;
+  conf.mqtt_serv_ip[0] = 255; conf.mqtt_serv_ip[1] = 255; conf.mqtt_serv_ip[2] = 255; conf.mqtt_serv_ip[3] = 255;
 }  
 
 #endif
