@@ -130,6 +130,11 @@
 	P(text_slash)  = "/";
 	P(text_publish) = "publish";
 	P(text_Radio)  = "Radio";
+	P(text_Received)  = "Received";
+	P(text_packets)  = "packets";
+	P(text_Not)  = "Not";
+	P(text_Failed)  = "Failed";
+	P(text_acknowledged)  = "acknowledged";
 
     P(text_MRF)    = "requested, failed";
     P(text_MNRF)   = "not requested, failed";

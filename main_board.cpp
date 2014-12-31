@@ -198,11 +198,15 @@ unit_t unit[AUTH_UNITS];
 volatile uint8_t units = 0;
 
 // Global variables
-volatile uint32_t idleCount;                  // temporary free ticks
-volatile uint8_t  ACState = 0;
-volatile uint16_t BatteryLevel = 460;         // 13.8V
-volatile uint8_t  OUTs = 0;                   // Output pins
-volatile uint8_t  MQTTState = 0;
+volatile uint32_t idleCount      = 0;         // temporary free ticks
+volatile uint8_t  ACState        = 0;
+volatile uint16_t BatteryLevel   = 460;       // 13.8V
+volatile uint8_t  OUTs           = 0;         // Output pins
+volatile uint8_t  MQTTState      = 0;
+volatile uint16_t radio_bad_crc  = 0;
+volatile uint16_t radio_no_ack   = 0;
+volatile uint32_t radio_received = 0;
+
 char     last_key[KEY_LEN+1] = "UUUUUUUU";
 
 char tmp[17];       // for logger 
@@ -281,7 +285,7 @@ uint8_t sendCmd(uint8_t unit, uint8_t cmd){
     char _cmd[2];
     _cmd[0] = 'C'; _cmd[1] = cmd;
     nilSemWait(&RFMSem); 
-    if (unit-RADIO_UNIT_OFFSET == 0) {
+    if (unit-RADIO_UNIT_OFFSET == 0) { // radio 0/broadcast
       radio.Send(unit-RADIO_UNIT_OFFSET, _cmd, 2, false);
       _resp = 1;
     }
@@ -518,6 +522,19 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
     server.printP(html_e_td); server.printP(html_e_tr);
     server.printP(html_e_table);
     
+    server.printP(html_h1); server.printP(text_Radio); server.printP(html_e_h1);  server.printP(html_p);
+    server.printP(html_table);
+    server.printP(html_tr); server.printP(html_td);
+    server.printP(text_Received); server.printP(text_space); server.printP(text_packets); server.printP(html_e_td); server.printP(html_td); server.printP(text_sesp);
+    server << radio_received; server.printP(html_e_td); server.printP(html_e_tr);
+    server.printP(html_tr); server.printP(html_td);
+    server.printP(text_Failed); server.printP(text_space); server.printP(text_packets); server.printP(html_e_td); server.printP(html_td); server.printP(text_sesp);
+    server << radio_bad_crc; server.printP(html_e_td); server.printP(html_e_tr);
+    server.printP(html_tr); server.printP(html_td);
+    server.printP(text_Not); server.printP(text_space); server.printP(text_acknowledged); server.printP(text_space); server.printP(text_packets); server.printP(html_e_td); server.printP(html_td); server.printP(text_sesp);
+    server << radio_no_ack; server.printP(html_e_td); server.printP(html_e_tr);
+    server.printP(html_e_table);
+
     server.printP(html_h1); server.printP(text_GSM); server.printP(text_space); server.printP(text_modem); server.printP(html_e_h1);  server.printP(html_p);
     server.printP(html_table);
     server.printP(html_tr); server.printP(html_td);
@@ -829,13 +846,15 @@ void webSetZone(WebServer &server, WebServer::ConnectionType type, char *url_tai
         server << (((conf.zone[i] >> 5) & B11)*conf.alr_time); server.printP(text_space); server.printP(text_sec); server.printP(html_e_td); server.printP(html_td);
         server << ((conf.zone[i] >> 1) & B1111) + 1; server.printP(text_spdashsp); server << conf.group_name[((conf.zone[i] >> 1) & B1111)];
         server.printP(html_e_td); server.printP(html_td);
-        if ((conf.zone[i] & B1)) { server << (nilTimeNow() - zone[i].last_PIR)/NIL_CFG_FREQUENCY; }
+        time_now = (nilTimeNow() - zone[i].last_PIR)/NIL_CFG_FREQUENCY;
+        if ((conf.zone[i] & B1)) { server.print((char*)time_now.formatedUpTime()); }
         else                     { server.printP(text_spdashsp); }
-        server.printP(text_space); server.printP(text_sec);
+        //server.printP(text_space); server.printP(text_sec);
+        time_now = (nilTimeNow() - zone[i].last_OK)/NIL_CFG_FREQUENCY;
         server.printP(html_e_td); server.printP(html_td);
-        if ((conf.zone[i] & B1)) { server << (nilTimeNow() - zone[i].last_OK)/NIL_CFG_FREQUENCY; }
+        if ((conf.zone[i] & B1)) { server.print((char*)time_now.formatedUpTime()); }
         else                     { server.printP(text_spdashsp); }
-        server.printP(text_space); server.printP(text_sec);
+        //server.printP(text_space); server.printP(text_sec);
         server.printP(html_e_td); server.printP(html_td);
         if (conf.zone[i] >> 15){       // Digital 0/ Analog 1
           nilSemWait(&ADCSem);          // Wait for slot
@@ -1038,7 +1057,10 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
         if ((conf.group[i] >> 2) & B1) { server.printP(text_OUT1); server.printP(text_space); }
         if ((conf.group[i] >> 1) & B1) server.printP(text_OUT2);
         server.printP(html_e_td); server.printP(html_td);
-        (group[i].setting >> 1 & B1) ? server.printP(text_ALARM) : server.printP(text_OK);
+
+        if (conf.group[i] & B1) {
+          (group[i].setting >> 1 & B1) ? server.printP(text_ALARM) : server.printP(text_OK);
+        } else { server.printP(text_disabled); }
         server.printP(html_e_td); server.printP(html_e_tr);
       }
       server.printP(html_e_table); server.printP(html_e_p);
@@ -1827,7 +1849,8 @@ NIL_WORKING_AREA(waZoneThread, 64);
 NIL_THREAD(ZoneThread, arg) {
   int16_t val = 0;
   uint8_t _group = 255;
-  //char l_tmp[4]; // for logger 
+  uint8_t _resp;
+  
   nilThdSleepSeconds(60); // Delay to allow PIR sensors to settle up
   _tmp[0] = 'S'; _tmp[1] = 'S'; _tmp[2] = 0; pushToLog(_tmp);
   WS.println(F("ZoneThread started"));
@@ -1840,6 +1863,7 @@ NIL_THREAD(ZoneThread, arg) {
       if (group[i].arm_delay) { // wait for arm delay
         group[i].arm_delay--;
         if (!group[i].arm_delay) { 
+          _resp = sendCmdToGrp(_group, 15);  // send arm message to all units
           _tmp[0] = 'S'; _tmp[1] = 'Z'; _tmp[2] = 48+i; _tmp[3] = 0; pushToLog(_tmp);
         }
       }
@@ -2048,7 +2072,7 @@ NIL_THREAD(RS485RXThread, arg) {
                 if (conf.group[_group] & B1) { 
                   group[_group].setting |= 1;                   // arm group
                   group[_group].arm_delay = conf.arm_delay; // set arm delay
-                  _resp = sendCmdToGrp(_group, 10);  // send arm message to all units
+                  _resp = sendCmdToGrp(_group, 10);  // send arming message to all units
                 } 
                 else { _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = 48+_group; _tmp[3] = 0; pushToLog(_tmp); }
               }
@@ -2449,10 +2473,6 @@ NIL_THREAD(ServiceThread, arg) {
 //
 NIL_WORKING_AREA(waRadioThread, 128);  
 NIL_THREAD(RadioThread, arg) {
-  uint16_t bad_crc = 0;
-  uint16_t no_ack = 0;
-  uint32_t received = 0;
-
   uint8_t  _pos, _unit, _resp;
 
   WS.println(F("RadioThread started"));    
@@ -2460,16 +2480,10 @@ NIL_THREAD(RadioThread, arg) {
     nilThdSleepMilliseconds(50);
     if (radio.ReceiveComplete()) {
       nilSemWait(&RFMSem); 
-      ++received;
+      ++radio_received;
       if (radio.CRCPass()) {
-        /*
-        WS.print(F("received[")); WS.print(radio.GetSender(), DEC);WS.print(F("] "));
-        for (byte i = 0; i < *radio.DataLen; i++)
-          WS.print((char)radio.Data[i]);
-        */
         // Registration
         if ((char)radio.Data[0] == 'R') {
-          WS.print(F("Radio: "));
           _pos = 1;
           do {
             switch((char)radio.Data[_pos]){
@@ -2583,12 +2597,9 @@ NIL_THREAD(RadioThread, arg) {
         if (radio.ACKRequested()) radio.SendACK();
       }
       else {
-        ++bad_crc;
-        WS.print(F("BAD-CRC"));
+        ++radio_bad_crc;
       }
       nilSemSignal(&RFMSem);  // Exit region.
-      WS.print(F("Received: ")); WS.print(received); WS.print(F(", Bad CRC: ")); WS.print(bad_crc); WS.print(F(", Not ACKed: ")); WS.print(no_ack); 
-      WS.println();
     }
   }
 }
