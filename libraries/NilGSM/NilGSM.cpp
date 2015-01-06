@@ -16,6 +16,7 @@ static gsm_rx_ring_buffer rx_buffer;
 static gsm_tx_ring_buffer tx_buffer;
 // Local static variables
 static uint8_t _msg;
+static uint8_t _ATreply[60]; // buffer to accomodate AT reply  
 
 /**
  * Initialize the USART module with the BAUD rate predefined
@@ -122,7 +123,6 @@ NIL_IRQ_HANDLER(USART0_RX_vect) {
     _msg ++;
   }
 
-
   if ((rx_buffer.head) == rx_buffer.tail) { // full, we are loosing data
     rx_buffer.tail = (rx_buffer.tail + 1) % GSM_USART_RX_BUFFER_SIZE;
   }
@@ -207,9 +207,8 @@ uint8_t NilGSM::ATWaitMsg(void){
 } 
 
 // 
-int8_t NilGSM::ATsendCmd(char* what){ 
+int8_t NilGSM::ATsendCmd(char *what){ 
   uint8_t t_size;
-  uint8_t text[10];
   int8_t  at_tmp;
 
   //[SEND] AT
@@ -220,29 +219,28 @@ int8_t NilGSM::ATsendCmd(char* what){
   println(what);
 
   if (!ATWaitMsg()) return 0;              // timeout reached
-  t_size = read(text);                     // read serial
+  t_size = read(_ATreply);                 // read serial
   //  WS.print(t_size);
   //  for(uint8_t i = 0; i < t_size; i++) {
-  //   WS.print((char)text[i]);
+  //   WS.print((char)_ATreply[i]);
   //  }
   //  WS.println();
   if (t_size < 2) return -11;              // echo not match, ?? sizeof(what) returns always 2 for any lenght
-  at_tmp = memcmp(what, text, t_size);
+  at_tmp = memcmp(what, _ATreply, t_size);
   //println(at_tmp);
   if (at_tmp != 0) return -1;              // echo not match
 
   if (!ATWaitMsg()) return 0;              // timeout reached
-  t_size = read(text);                     // read serial
+  t_size = read(_ATreply);                 // read serial
   if (t_size != 2) return -22;             // 'OK' size
-  at_tmp = memcmp(AT_OK, text, t_size);    // compare
+  at_tmp = memcmp(AT_OK, _ATreply, t_size);// compare
   if (at_tmp != 0) return -2;              // OK not received
   else return 1;
 }
 
 // 
-int8_t NilGSM::ATsendCmdWR(char* what, uint8_t* response){ 
+int8_t NilGSM::ATsendCmdWR(char *what, uint8_t *response){ 
   uint8_t t_size, r;
-  uint8_t text[10];
   int8_t  at_tmp;
 
   //[SEND] AT+CSQ
@@ -255,9 +253,9 @@ int8_t NilGSM::ATsendCmdWR(char* what, uint8_t* response){
   println(what);
   // get echo
   if (!ATWaitMsg()) return 0;               // timeout reached
-  t_size = read(text);                      // read serial
+  t_size = read(_ATreply);                  // read serial
   if (t_size < 3) return -11;               // echo not match
-  at_tmp = memcmp(what, text, t_size);
+  at_tmp = memcmp(what, _ATreply, t_size);
   if (at_tmp != 0) return -1;               // echo not match
 
   // get output
@@ -267,22 +265,21 @@ int8_t NilGSM::ATsendCmdWR(char* what, uint8_t* response){
 
   // empty line
   if (!ATWaitMsg()) return 0;               // timeout reached
-  t_size = read(text);                      // read serial
+  t_size = read(_ATreply);                  // read serial
   if (t_size != 0) return -33;              // not empty line
   
   // get OK / ERROR
   if (!ATWaitMsg()) return 0;               // timeout reached
-  t_size = read(text);                      // read serial
+  t_size = read(_ATreply);                      // read serial
   if (t_size != 2) return -22;              // 'OK' size
-  at_tmp = memcmp(AT_OK, text, t_size);     // compare
+  at_tmp = memcmp(AT_OK, _ATreply, t_size); // compare
   if (at_tmp != 0) return -2;               // OK not received
   else return r;                            // size of reply
 }
 
 // 
-int8_t NilGSM::ATsendCmdWR(char* what, uint8_t* response, uint8_t index){ 
+int8_t NilGSM::ATsendCmdWR(char *what, uint8_t *response, uint8_t index){ 
   uint8_t t_size, r;
-  uint8_t text[10];
   int8_t  at_tmp;
   char * pch;
 
@@ -296,9 +293,9 @@ int8_t NilGSM::ATsendCmdWR(char* what, uint8_t* response, uint8_t index){
   println(what);
   // get echo
   if (!ATWaitMsg()) return 0;               // timeout reached
-  t_size = read(text);                      // read serial
+  t_size = read(_ATreply);                  // read serial
   if (t_size < 3) return -11;               // echo not match
-  at_tmp = memcmp(what, text, t_size);
+  at_tmp = memcmp(what, _ATreply, t_size);
   if (at_tmp != 0) return -1;               // echo not match
 
   // get output
@@ -319,18 +316,61 @@ int8_t NilGSM::ATsendCmdWR(char* what, uint8_t* response, uint8_t index){
 
   // empty line
   if (!ATWaitMsg()) return 0;               // timeout reached
-  t_size = read(text);                      // read serial
+  t_size = read(_ATreply);                  // read serial
   if (t_size != 0) return -33;              // not empty line
   
   // get OK / ERROR
   if (!ATWaitMsg()) return 0;               // timeout reached
-  t_size = read(text);                      // read serial
+  t_size = read(_ATreply);                  // read serial
   if (t_size != 2) return -22;              // 'OK' size
-  at_tmp = memcmp(AT_OK, text, t_size);     // compare
+  at_tmp = memcmp(AT_OK, _ATreply, t_size); // compare
   if (at_tmp != 0) return -2;               // OK not received
   else return r;                            // size of reply
 }
 
+int8_t NilGSM::ATsendSMSBegin(char *number) {
+  uint8_t t_size;
+  int8_t  at_tmp;
+  flushRX();
+
+  // SMS header
+  print(AT_send_sms); print('"'); print(number); print('"'); write(13);
+
+  if (!ATWaitMsg()) return 0;               // timeout reached
+  t_size = read(_ATreply);                  // read serial
+  at_tmp = memcmp(AT_send_sms, _ATreply, sizeof(AT_send_sms)-1);     // compare
+  if (at_tmp != 0) return -1;               // echo not match
+  else return 1;
+}
+
+int8_t NilGSM::ATsendSMSEnd(char *what, uint8_t send) {
+  uint8_t t_size;
+  int8_t  at_tmp;
+  
+  print(what);
+  // End of SMS
+  if (send) write(26); // ctrl+z, send SMS
+  else      write(27); // ESC   , mo SMS 
+  
+  // read reply
+  if (!ATWaitMsg()) return 0;               // timeout reached
+  t_size = read(_ATreply);                      // read serial
+  at_tmp = memcmp("> ", _ATreply, 2);           // compare
+  if (at_tmp != 0) return -1;               // not received
+  
+  if (send) {
+    if (!ATWaitMsg()) return 0;               // timeout reached
+    t_size = read(_ATreply);                      // read serial ??????
+    at_tmp = memcmp(AT_send_sms_reply, _ATreply, sizeof(AT_send_sms_reply)-1);  // compare
+    if (at_tmp != 0) return -2;                                              // not received
+  } 
+  
+  if (!ATWaitMsg()) return 0;               // timeout reached
+  t_size = read(_ATreply);                      // read serial
+  at_tmp = memcmp(AT_OK, _ATreply, sizeof(AT_OK)-1); // compare
+  if (at_tmp != 0) return -3;                    // OK not received
+  else return 1;
+}
 
 /** Sleep while waiting for new message.
  * @note This function should not be used in the idle thread.

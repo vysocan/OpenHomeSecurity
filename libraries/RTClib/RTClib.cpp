@@ -67,7 +67,8 @@ DateTime::DateTime (long t) {
     mm = t % 60;
     t /= 60;
     hh = t % 24;
-    uint16_t days = t / 24;
+    //uint16_t days = t / 24;
+    days = t / 24; cdays = days;
     uint8_t leap;
     for (yOff = 0; ; ++yOff) {
         leap = yOff % 4 == 0;
@@ -142,25 +143,81 @@ char* DateTime::timestamp() {
   static char _tmp_itoa[5];
   _tmp_ts[0] = 0;
   
-  if (yOff < 10) strcat (_tmp_ts, "0");
+  if (yOff < 10) strcat_P (_tmp_ts, RTC_text_0);
   itoa(yOff, _tmp_itoa, 10);
   strcat (_tmp_ts, _tmp_itoa);
 
-  if (m < 10) strcat (_tmp_ts, "0");
+  if (m < 10) strcat_P (_tmp_ts, RTC_text_0);
   itoa(m, _tmp_itoa, 10);
   strcat (_tmp_ts, _tmp_itoa);
   
-  if (d < 10) strcat (_tmp_ts, "0");
+  if (d < 10) strcat_P (_tmp_ts, RTC_text_0);
   itoa(d, _tmp_itoa, 10);
   strcat (_tmp_ts, _tmp_itoa);
   
-  if (hh < 10) strcat (_tmp_ts, "0");
+  if (hh < 10) strcat_P (_tmp_ts, RTC_text_0);
   itoa(hh, _tmp_itoa, 10);
   strcat (_tmp_ts, _tmp_itoa);
-  if (mm < 10) strcat (_tmp_ts, "0");
+  if (mm < 10) strcat_P (_tmp_ts, RTC_text_0);
   itoa(mm, _tmp_itoa, 10);
   strcat (_tmp_ts, _tmp_itoa);
-  if (ss < 10) strcat (_tmp_ts, "0");
+  if (ss < 10) strcat_P (_tmp_ts, RTC_text_0);
+  itoa(ss, _tmp_itoa, 10);
+  strcat (_tmp_ts, _tmp_itoa);
+  
+  return _tmp_ts;  
+}
+
+//
+char* DateTime::formatedDateTime() {
+  static char _tmp_itoa[5];
+  _tmp_ts[0] = 0;
+  
+  if (d < 10) strcat_P (_tmp_ts, RTC_text_0);
+  itoa(d, _tmp_itoa, 10);
+  strcat (_tmp_ts, _tmp_itoa);
+  strcat_P (_tmp_ts, RTC_text_dot);
+  if (m < 10) strcat_P (_tmp_ts, RTC_text_0);
+  itoa(m, _tmp_itoa, 10);
+  strcat (_tmp_ts, _tmp_itoa);
+  strcat_P (_tmp_ts, RTC_text_dot_tt);
+  if (yOff < 10) strcat_P (_tmp_ts, RTC_text_0);
+  itoa(yOff, _tmp_itoa, 10);
+  strcat (_tmp_ts, _tmp_itoa);
+  strcat_P (_tmp_ts, RTC_text_space);
+  if (hh < 10) strcat_P (_tmp_ts, RTC_text_0);
+  itoa(hh, _tmp_itoa, 10);
+  strcat (_tmp_ts, _tmp_itoa);
+  strcat_P (_tmp_ts, RTC_text_semicol);
+  if (mm < 10) strcat_P (_tmp_ts, RTC_text_0);
+  itoa(mm, _tmp_itoa, 10);
+  strcat (_tmp_ts, _tmp_itoa);
+  strcat_P (_tmp_ts, RTC_text_semicol);
+  if (ss < 10) strcat_P (_tmp_ts, RTC_text_0);
+  itoa(ss, _tmp_itoa, 10);
+  strcat (_tmp_ts, _tmp_itoa);
+  
+  return _tmp_ts;  
+}
+
+//
+char* DateTime::formatedUpTime() {
+  static char _tmp_itoa[5];
+  _tmp_ts[0] = 0;
+  
+  itoa(days, _tmp_itoa, 10);
+  strcat (_tmp_ts, _tmp_itoa);
+  strcat_P (_tmp_ts, RTC_text_days);
+  
+  if (hh < 10) strcat_P (_tmp_ts, RTC_text_0);
+  itoa(hh, _tmp_itoa, 10);
+  strcat (_tmp_ts, _tmp_itoa);
+  strcat_P (_tmp_ts, RTC_text_semicol);
+  if (mm < 10) strcat_P (_tmp_ts, RTC_text_0);
+  itoa(mm, _tmp_itoa, 10);
+  strcat (_tmp_ts, _tmp_itoa);
+  strcat_P (_tmp_ts, RTC_text_semicol);
+  if (ss < 10) strcat_P (_tmp_ts, RTC_text_0);
   itoa(ss, _tmp_itoa, 10);
   strcat (_tmp_ts, _tmp_itoa);
   

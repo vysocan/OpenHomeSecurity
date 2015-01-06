@@ -3,6 +3,13 @@
 // 2012-11-08 RAM methods - idreammicro.com
 // 2012-11-14 SQW/OUT methods - idreammicro.com
 
+// Progmem strings to save somy RAM
+const char RTC_text_0[] PROGMEM       = "0";
+const char RTC_text_semicol[] PROGMEM = ":";
+const char RTC_text_space[] PROGMEM   = " ";
+const char RTC_text_dot[] PROGMEM     = ".";
+const char RTC_text_dot_tt[] PROGMEM  = ".20";
+const char RTC_text_days[] PROGMEM    = "d, ";
 // Simple general-purpose date/time class (no TZ / DST / leap second handling!)
 class DateTime {
 public:
@@ -19,14 +26,17 @@ public:
     uint8_t second() const      { return ss; }
     uint8_t dayOfWeek() const;
     // 
-    char* timestamp(); 
+    char* timestamp();
+    char* formatedDateTime();
+    char* formatedUpTime();
 
     // 32-bit times as seconds since 1/1/2000
     long get() const;
 
 protected:
     uint8_t yOff, m, d, hh, mm, ss;
-    char _tmp_ts[13];
+    uint16_t days, cdays;
+    char _tmp_ts[20];
 
 };
 

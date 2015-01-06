@@ -5,6 +5,13 @@
 
 #include "WebSerial.h"
 
+#if WEB_SERIAL_DEBUGGING > 1
+#include <NilGSM.h>
+#define Serial GSM                                
+//#include <HardwareSerial.h>
+#endif
+
+
 // both buffers are static global vars in this file. interrupt handlers
 // need to access them
 static web_ring_buffer web_buffer;
@@ -70,6 +77,10 @@ size_t WebSerial::write(uint8_t data) {
     _tail = (_tail + 1) % WEB_BUFFER_SIZE;
   }
 
+  #if WEB_SERIAL_DEBUGGING > 1
+  GSM.write(data);
+  #endif
+  
   return 1;
 }
 void WebSerial::printP(const unsigned char *str){

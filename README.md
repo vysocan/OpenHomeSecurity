@@ -1,6 +1,3 @@
-OpenHomeSecurity
-================
-
 This repository will contain the latest software for main board.
 
 http://openhomesecurity.blogspot.com
@@ -12,4 +9,3 @@ It consists from one main alarm board with atmega 1284P that thas inputs for sen
 Main board has 7 analog inputs that can recognize different events on sensors. And 4 digital inputs.
 
 Remote nodes act as authentication units and currently they are set to receive iButtons as keys to arm/disarm the system.
-

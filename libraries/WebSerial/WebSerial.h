@@ -10,6 +10,10 @@
 #include <avr/pgmspace.h>
 #include <inttypes.h>
 
+#ifndef WEB_SERIAL_DEBUGGING
+#define WEB_SERIAL_DEBUGGING 1
+#endif
+
 // Define buffer sizes
 #define WEB_BUFFER_SIZE 1024
 

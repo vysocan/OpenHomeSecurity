@@ -60,7 +60,7 @@ int EthernetClient::connect(IPAddress ip, uint16_t port) {
   }
 
   while (status() != SnSR::ESTABLISHED) {
-    delay(1);
+    //delay(1);
     if (status() == SnSR::CLOSED) {
       _sock = MAX_SOCK_NUM;
       return 0;
@@ -133,8 +133,9 @@ void EthernetClient::stop() {
   unsigned long start = millis();
 
   // wait a second for the connection to close
-  while (status() != SnSR::CLOSED && millis() - start < 1000)
-    delay(1);
+  while (status() != SnSR::CLOSED && millis() - start < 1000) {
+    //delay(1);
+  }
 
   // if it hasn't closed, close it forcefully
   if (status() != SnSR::CLOSED)
