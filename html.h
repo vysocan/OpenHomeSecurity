@@ -15,11 +15,14 @@
 	P(text_1)              = "1";
 	P(text_2)              = "2";
 	P(text_3)              = "3";
+	P(text_x)              = " x ";
 	P(text_Yes)            = "Yes";
 	P(text_No)             = "No";	
 	P(text_Configuration)  = "Configuration";
 	P(text_configuration)  = "configuration";
 	P(text_saved)          = "saved";
+	P(text_loaded)         = "loaded";
+	P(text_reset)          = "reset";
 	P(text_armed)          = "armed";
 	P(text_Arm)            = "Arm";
 	P(text_arm)            = "arm";
@@ -47,6 +50,7 @@
 	P(text_enabled)        = "enabled";
 	P(text_Enabled)        = "Enabled";
 	P(text_Voltage)        = "Voltage";
+	P(text_all)            = "all";
 
 
 	P(text_nr)     = "not registered"; 
@@ -101,6 +105,7 @@
     P(text_dot)    = ".";
     P(text_percent)  = "%";
     P(text_comma)    = ",";
+    P(text_cosp)    = ", ";
     P(text_sesp)   = ": ";
     P(text_spdashsp) = " - ";
 	P(text_PwrSp)  = "Power supply";
@@ -110,6 +115,8 @@
 	P(text_Address)= "Address";
 	P(text_address)= "address";
 	P(text_registered) = "registered";
+	P(text_registration) = "registration";
+	P(text_error) = "error";
 	P(text_re)     = "re";
 	P(text_iButton)= "iButton";
 	P(text_Temperature) = "Temperature";
@@ -135,16 +142,16 @@
 	P(text_Not)  = "Not";
 	P(text_Failed)  = "Failed";
 	P(text_acknowledged)  = "acknowledged";
-
-    P(text_MRF)    = "requested, failed";
-    P(text_MNRF)   = "not requested, failed";
-    P(text_MNRA)   = "not requested, acknowledged";
-    P(text_MNC)    = "modem not connected";
-    P(text_MOK)    = "sent";
+	P(text_requested) = "requested";
+	P(text_Fifo)  = "Fifo";
+	P(text_full)  = "full";
+    P(text_sent)    = "sent";
     P(text_connected) = "connected";
     P(text_hash)   = "#";
 
 	P(html_F_SA)    = "<input type='submit' name='e' value='Save all'/>";
+	P(html_F_RD)    = "<input type='submit' name='r' value='Reset to default'/>";
+	P(html_F_LA)    = "<input type='submit' name='l' value='Load last'/>";
 	P(html_F_A)     = "<input type='submit' name='A' value='Apply'/>";
 	P(html_F_S)     = "<input type='submit' name='S' value='Select'/>";
 	P(html_F_LOG)   = "<input type='submit' name='p' value='<<'/><input type='submit' name='n' value='now'/><input type='submit' name='f' value='>>'/>";
@@ -205,11 +212,10 @@
 	"<a href='phone'>Phone</a> "
 	"<a href='auth'>Authentication</a> "
 	"<a href='sens'>Sensors</a> "
+	"<a href='mqtt'>MQTT</a> "
 	"<a href='log'>Log</a> "
 	"<a href='debug'>Debug</a>"
-	"<hr></div>";
-
-      
+	"<hr></div>";  
 	P(htmlFoot) = "</body></html>";	
 	
 #endif

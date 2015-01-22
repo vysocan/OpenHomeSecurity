@@ -9,15 +9,13 @@
 #define ALR_GROUPS     16        // Groups
 
 // ADC Alarm settings refer to voltage divider and input voltage level
-// values set for resistors 10k Tamper, 22k PIR
-#define ALR_OK_LOW     150
-#define ALR_OK         200
-#define ALR_OK_HI      250
-#define ALR_PIR_LOW    -50
-#define ALR_PIR        0
-#define ALR_PIR_HI     50
-#define ALR_TAMP_LOW   -270
-#define ALR_TAMP_HI    -170
+// values set for resistors 10k Tamper, 20k PIR
+#define ALR_OK_LOW     -70
+#define ALR_OK         0
+#define ALR_OK_HI      70
+#define ALR_PIR_LOW    -270
+#define ALR_PIR        -200
+#define ALR_PIR_HI     -130
 
 #define VERSION 100
 // Global configuration in chip EEPROM
@@ -84,7 +82,7 @@ void setDefault(){
   conf.zone_name[10][0] = '-';conf.zone_name[10][1] = 0;
   conf.zone_name[11][0] = '-';conf.zone_name[11][1] = 0;
   conf.zone_name[12][0] = '-';conf.zone_name[12][1] = 0;
-  conf.key[0][0] = 0xFF;conf.key[0][1] = 0;
+  conf.key[0][0] = 0xFF;conf.key[0][1] = 0xFF;conf.key[0][2] = 0xFF;
   conf.key[1][0] = 0xFF;conf.key[1][1] = 0;
   conf.key[2][0] = 0xFF;conf.key[2][1] = 0;
   conf.key[3][0] = 0xFF;conf.key[3][1] = 0;
@@ -192,13 +190,13 @@ void setDefault(){
 // System     |||||- Battery state
 // System     ||||||- AC state
 // System     |||||||- Configration saved
-// System     ||||||||- System armed
+// System     ||||||||- System group armed
 // System     ||||||||         
 // System     ||||||||         |- Monitoring started
 // System     ||||||||         ||- ALARM - No authentication
 // Alarm      ||||||||         |||- PIR
 // Alarm      ||||||||         ||||- TAMPER
-// Alarm      ||||||||         |||||- Undefined Alarm
+//            ||||||||         |||||- 
 // Keys       ||||||||         ||||||- Armed/Auto armed
 // Keys       ||||||||         |||||||- Disarmed
 // Keys       ||||||||         ||||||||- Undefined Key
@@ -209,7 +207,7 @@ void setDefault(){
 // - to call .Encrypt(KEY) to start encrypting
 // - to stop encrypting call .Encrypt(NULL)
   conf.radioKey[0] = '-'; conf.radioKey[1] = 0;
-  conf.mqtt_serv_ip[0] = 255; conf.mqtt_serv_ip[1] = 255; conf.mqtt_serv_ip[2] = 255; conf.mqtt_serv_ip[3] = 255;
+  conf.mqtt_serv_ip[0] = 10; conf.mqtt_serv_ip[1] = 10; conf.mqtt_serv_ip[2] = 10; conf.mqtt_serv_ip[3] = 1;
 }  
 
 #endif
