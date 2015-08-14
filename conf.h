@@ -38,6 +38,9 @@ struct config_t {
   uint8_t  open_alarm;  // minutes
   uint8_t  radioKey[17];
   byte     mqtt_serv_ip[4];
+  char     user[11];
+  char     password[11];
+  char     user_pass[31];
 } conf;
 
 void setDefault(){
@@ -208,6 +211,8 @@ void setDefault(){
 // - to stop encrypting call .Encrypt(NULL)
   conf.radioKey[0] = '-'; conf.radioKey[1] = 0;
   conf.mqtt_serv_ip[0] = 10; conf.mqtt_serv_ip[1] = 10; conf.mqtt_serv_ip[2] = 10; conf.mqtt_serv_ip[3] = 1;
+  conf.user[0] = '#'; conf.user[1] = 0;
+  conf.password[0] = '#'; conf.password[1] = 0;
 }  
 
 #endif

@@ -92,7 +92,8 @@
     P(text_modem)  = "modem";
     P(text_is)     = "is";
     P(text_network)= "network";
-    P(text_SS)     = "Signal strength";
+    P(text_Signal)   = "Signal";
+    P(text_strength) = "strength";
     P(text_seconds)= "seconds";
     P(text_minutes)= "minutes";
     P(text_Time)   = "Time";
@@ -148,6 +149,10 @@
     P(text_sent)    = "sent";
     P(text_connected) = "connected";
     P(text_hash)   = "#";
+    P(text_User)   = "User";
+    P(text_Password)   = "Password";
+    
+
 
 	P(html_F_SA)    = "<input type='submit' name='e' value='Save all'/>";
 	P(html_F_RD)    = "<input type='submit' name='r' value='Reset to default'/>";
@@ -160,13 +165,21 @@
 	P(html_F_RR)    = "<input type='submit' name='R' value='Reregister'/>";
 	P(html_e_table) = "</table>";
 	P(html_table)   = "<table>";
+	P(html_table_tr_td)   = "<table><tr><td>";
+	P(html_table_tr_th)   = "<table><tr><th>";
 	P(html_e_td)    = "</td>";
+	P(html_e_td_td)    = "</td><td>";
+	P(html_e_td_td_sesp)    = "</td><td>: ";
 	P(html_td)      = "<td>";
 	P(html_e_tr)    = "</tr>";
+	P(html_e_td_e_tr)    = "</td></tr>";
 	P(html_tr)      = "<tr>";
+	P(html_tr_td)      = "<tr><td>";
 	P(html_tr_ev)   ="<tr class='even'>";
 	P(html_tr_od)   ="<tr class='odd'>";
 	P(html_e_th)    = "</th>";
+	P(html_e_th_th)    = "</th><th>";
+	P(html_e_th_e_tr)    = "</th><tr>";
 	P(html_th)      = "<th>";
 	P(html_h1)      = "<h1>";
 	P(html_e_h1)    = "</h1>";
