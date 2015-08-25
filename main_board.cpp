@@ -61,9 +61,12 @@ inline Print &operator <<(Print &obj, T arg)
 
 // MQTT 
 #include <PubSubClient.h>
-byte MQTTIP[]     = { 10,  10,  10, 126};
+// Callback function header
+void callback(char* topic, byte* payload, unsigned int length);
+byte MQTTIP[]       = { 10,  10,  10, 126};
 char str_MQTT_dev[] = "OHS"; // device name
 EthernetClient MQTTClient;
+PubSubClient client(MQTTIP, 1883, callback, MQTTClient);
 
 #include <RFM12B.h>
 // You will need to initialize the radio by telling it what ID it has and what network it's on
@@ -200,12 +203,13 @@ volatile uint8_t units = 0;
 
 // Registration
 struct register_t {
+  char    unit;
   uint8_t address;
   char    type;
   uint8_t number;
   uint8_t setting;
 };
-NilFIFO<register_t, 5> register_fifo;
+NilFIFO<register_t, 5> unit_fifo;
 
 // Global variables
 volatile uint32_t idleCount      = 0;         // temporary free ticks
@@ -444,22 +448,43 @@ unsigned long GetNTPTime(UDP &udp){
   return time - NTP_SECS_YR_1900_2000 + NTP_TIME_ZONE * 3600; // convert NTP time to seconds after 2000
 }
 
-
-// MQTT
+// MQTT Callback function
 void callback(char* topic, byte* payload, unsigned int length) {
-  // handle message arrived
+  char * pch;
+  char _text[40];
+  // In order to republish this payload, a copy must be made
+  // as the orignal payload buffer will be overwritten whilst
+  // constructing the PUBLISH packet.
+  
+  strncpy (_text,(char*)payload, length); _text[length] = 0;
+
+  WS.print(topic); WS.print(":"); WS.print(_text); WS.print(":"); WS.println(length);
+
+  // get topic
+  pch = strtok (topic,"/"); //OHS
+  pch = strtok (topic,"/"); //in
+  while (pch != NULL){
+    WS.println(pch);
+    pch = strtok (NULL, "/");
+  }
+
+  //nilSemWait(&ETHSem);    // wait for slot
+  //client.publish("OHS/outTopic", p, length);        
+  //nilSemSignal(&ETHSem);  // Exit region.
+  
+
 }
-PubSubClient client(MQTTIP, 1883, callback, MQTTClient);
+
 
 const char PROGMEM b64_alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                     "abcdefghijklmnopqrstuvwxyz"
                                     "0123456789+/";
 
 inline void a3_to_a4(unsigned char * a4, unsigned char * a3) {
-  a4[0] = (a3[0] & 0xfc) >> 2;
+  a4[0] =  (a3[0] & 0xfc) >> 2;
   a4[1] = ((a3[0] & 0x03) << 4) + ((a3[1] & 0xf0) >> 4);
   a4[2] = ((a3[1] & 0x0f) << 2) + ((a3[2] & 0xc0) >> 6);
-  a4[3] = (a3[2] & 0x3f);
+  a4[3] =  (a3[2] & 0x3f);
 }
 
 int base64_encode(char *output, char *input, uint8_t inputLen) {
@@ -1987,7 +2012,7 @@ NIL_THREAD(ZoneThread, arg) {
   nilThdSleepSeconds(60); // Delay to allow PIR sensors to settle up
   _tmp[0] = 'S'; _tmp[1] = 'S'; _tmp[2] = 0; pushToLog(_tmp);
   #if WEB_SERIAL_DEBUGGING 
-  WS.println(F("ZoneThread started"));
+  WS.println(F("Zone thread started"));
   #endif
   
   // Execute while loop every 0.25 seconds.
@@ -2113,13 +2138,12 @@ NIL_THREAD(thdFcn, name) {
 
     group[_group].setting |= (1 << 2); // Set auth bit On
 
+    /*
     #if WEB_SERIAL_DEBUGGING 
-    WS.print((char*)name);
-    WS.print(" zone: "); WS.print(p->zone);
-    WS.print(", type: "); WS.print(p->type);
-    WS.print(", group: "); WS.print(_group);
-    WS.print(", Auth time: "); WS.println(_wait);
+    WS.print((char*)name); WS.print(" zone: "); WS.print(p->zone); WS.print(", type: "); WS.print(p->type);
+    WS.print(", group: "); WS.print(_group); WS.print(", Auth time: "); WS.println(_wait);
     #endif
+    */
 
     _resp = sendCmdToGrp(_group, 11 + _wait);
 
@@ -2178,7 +2202,6 @@ NIL_THREAD(RS485RXThread, arg) {
   uint8_t _resp = 0; 
   uint8_t _group = 255;
   uint8_t _pos = 0;
-  uint8_t _unit;  
 
   #if WEB_SERIAL_DEBUGGING 
   WS.println(F("RS485 receiver thread started"));
@@ -2190,13 +2213,13 @@ NIL_THREAD(RS485RXThread, arg) {
     _resp = RS485.msg_read(&RX_msg);
 
     /*
-    WS.print(F("> A:")); WS.print(RX_msg.address);
-    WS.print(F(", C:")); WS.print(RX_msg.ctrl);
+    #if WEB_SERIAL_DEBUGGING 
+    WS.print(F("> A:")); WS.print(RX_msg.address); WS.print(F(", C:")); WS.print(RX_msg.ctrl);
     WS.print(F(", L:")); WS.print(RX_msg.data_length); WS.print(F(" | "));   
     for (uint8_t i=0; i < RX_msg.data_length; i++){
-      WS.print((uint8_t)RX_msg.buffer[i],HEX);
-      WS.print(F(" "));
+      WS.print((uint8_t)RX_msg.buffer[i],HEX); WS.print(F(" "));
     }; WS.println();
+    #endif
     */
     
     // iButtons keys
@@ -2250,64 +2273,18 @@ NIL_THREAD(RS485RXThread, arg) {
     if (RX_msg.ctrl == FLAG_DTA && RX_msg.buffer[0]=='R') {
       _pos = 1;
       do {
-        switch(RX_msg.buffer[_pos]){
-          case 'K': // Key
-          _resp = 1;
-          for (_unit=0; _unit < units; _unit++) {
-            if (unit[_unit].address == RX_msg.address && unit[_unit].type == RX_msg.buffer[_pos+1] && unit[_unit].number == (uint8_t)RX_msg.buffer[_pos+2]) {
-              _resp = 0;
-              break;
-            }
-          }
-            if (_resp) { // if unit not present already
-              units++;
-              unit[units-1].address = RX_msg.address;
-              unit[units-1].type    = RX_msg.buffer[_pos+1];
-              unit[units-1].number  = (uint8_t)RX_msg.buffer[_pos+2];
-              unit[units-1].setting = (uint8_t)RX_msg.buffer[_pos+3];
-              _tmp[0] = 'U'; _tmp[1] = 'R'; _tmp[2] = 48 + unit[units-1].address; _tmp[3] = 0; pushToLog(_tmp);
-            } else {
-              unit[_unit].address = RX_msg.address;
-              unit[_unit].type    = RX_msg.buffer[_pos+1];
-              unit[_unit].number  = (uint8_t)RX_msg.buffer[_pos+2];
-              unit[_unit].setting = (uint8_t)RX_msg.buffer[_pos+3];
-              _tmp[0] = 'U'; _tmp[1] = 'r'; _tmp[2] = 48 + unit[_unit].address; _tmp[3] = 0; pushToLog(_tmp);
-            }
-            _pos += 4;
-            break;
-          case 'S': // Sensor
-          _resp = 1;
-          for (_unit=0; _unit < sensors; _unit++) {
-            if (sensor[_unit].address == RX_msg.address && sensor[_unit].type == RX_msg.buffer[_pos+1] && sensor[_unit].number == (uint8_t)RX_msg.buffer[_pos+2]) {
-              _resp = 0;
-              break;
-            }
-          }
-            if (_resp) { // if unit not present already
-              sensors++;
-              sensor[sensors-1].address = RX_msg.address;
-              sensor[sensors-1].type    = RX_msg.buffer[_pos+1];
-              sensor[sensors-1].number  = (uint8_t)RX_msg.buffer[_pos+2];
-              sensor[sensors-1].setting = (uint8_t)RX_msg.buffer[_pos+3];
-              sensor[sensors-1].value   = 0;
-              sensor[sensors-1].last_OK = nilTimeNow();    // update current timestamp
-              _tmp[0] = sensor[sensors-1].type + 32; _tmp[1] = 'R'; _tmp[2] = 48 + sensor[sensors-1].address; _tmp[3] = 0; pushToLog(_tmp);
-            } else {
-              sensor[_unit].address = RX_msg.address;
-              sensor[_unit].type    = RX_msg.buffer[_pos+1];
-              sensor[_unit].number  = (uint8_t)RX_msg.buffer[_pos+2];
-              sensor[_unit].setting = (uint8_t)RX_msg.buffer[_pos+3];
-              sensor[_unit].value   = 0;
-              sensor[_unit].last_OK = nilTimeNow();    // update current timestamp
-              _tmp[0] = sensor[_unit].type + 32; _tmp[1] = 'r'; _tmp[2] = 48 + sensor[_unit].address; _tmp[3] = 0; pushToLog(_tmp);
-            }
-            _pos += 4;
-            break;
-            default: 
-            _pos++;
-            _tmp[0] = 'U'; _tmp[1] = 'E'; _tmp[2] = 0; pushToLog(_tmp);
-            break;
-          }
+        register_t *p = unit_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
+        if (p == 0) {
+          _tmp[0] = 'F'; _tmp[1] = 'U'; _tmp[2] = 0; pushToLog(_tmp); // Sensor queue is full
+          return; // Continue if no free space.
+        }
+        p->unit    = RX_msg.buffer[_pos];    
+        p->address = RX_msg.address;
+        p->type    = RX_msg.buffer[_pos+1];
+        p->number  = (uint8_t)RX_msg.buffer[_pos+2];
+        p->setting = (uint8_t)RX_msg.buffer[_pos+3];
+        unit_fifo.signalData();   // Signal idle thread data is available.
+        _pos+=4;
         } while (_pos < RX_msg.data_length);
       }
     // Sensors
@@ -2646,10 +2623,10 @@ NIL_THREAD(ServiceThread, arg) {
 //
 NIL_WORKING_AREA(waRadioThread, 128);  
 NIL_THREAD(RadioThread, arg) {
-  uint8_t  _pos, _unit, _resp;
+  uint8_t  _pos;
 
   #if WEB_SERIAL_DEBUGGING 
-  WS.println(F("RadioThread started"));    
+  WS.println(F("Radio thread started"));    
   #endif
 
   while (TRUE) {
@@ -2659,118 +2636,47 @@ NIL_THREAD(RadioThread, arg) {
       ++radio_received;
       if (radio.CRCPass()) {
         // Registration
+        // WS.print(*radio.DataLen); WS.println(">");
+        // for (uint8_t _t=0; _t < *radio.DataLen; _t++) {
+        //   WS.print(radio.Data[_t], HEX); WS.print(":");
+        // }
+        // WS.println("<");
         if ((char)radio.Data[0] == 'R') {
           _pos = 1;
           do {
-            switch((char)radio.Data[_pos]){
-              case 'K': // Key
-              _resp = 1;
-              for (_unit=0; _unit < units; _unit++) {
-                if (unit[_unit].address == radio.GetSender()+RADIO_UNIT_OFFSET && unit[_unit].type == radio.Data[_pos+1] && unit[_unit].number == (uint8_t)radio.Data[_pos+2]) {
-                  _resp = 0;
-                  break;
-                }
-              }
-                if (_resp) { // if unit not present already
-                  units++;
-                  unit[units-1].address = radio.GetSender()+RADIO_UNIT_OFFSET;
-                  unit[units-1].type    = radio.Data[_pos+1];
-                  unit[units-1].number  = (uint8_t)radio.Data[_pos+2];
-                  unit[units-1].setting = (uint8_t)radio.Data[_pos+3];
-                  _tmp[0] = 'U'; _tmp[1] = 'R'; _tmp[2] = 48 + unit[units-1].address; _tmp[3] = 0; pushToLog(_tmp);
-                  /*
-                  WS.print(F("Key reg: ")); WS.println(units);
-                  WS.print(unit[units-1].address);
-                  WS.print(unit[units-1].type);
-                  WS.println(unit[units-1].number);
-                  WS.println(unit[units-1].setting,BIN);
-                  */
-                } else {
-                  unit[_unit].address = radio.GetSender()+RADIO_UNIT_OFFSET;
-                  unit[_unit].type    = radio.Data[_pos+1];
-                  unit[_unit].number  = (uint8_t)radio.Data[_pos+2];
-                  unit[_unit].setting = (uint8_t)radio.Data[_pos+3];
-                  _tmp[0] = 'U'; _tmp[1] = 'r'; _tmp[2] = 48 + unit[_unit].address; _tmp[3] = 0; pushToLog(_tmp);
-                  /*
-                  WS.print(F("Key rereg: ")); WS.println(_unit+1);
-                  WS.print(unit[_unit].address);
-                  WS.print(unit[_unit].type);
-                  WS.println(unit[_unit].number);
-                  WS.println(unit[_unit].setting,BIN);
-                  */
-                }
-                _pos += 4;
-                break;
-              case 'S': // Sensor
-              _resp = 1;
-              for (_unit=0; _unit < sensors; _unit++) {
-                if (sensor[_unit].address == radio.GetSender()+RADIO_UNIT_OFFSET && sensor[_unit].type == radio.Data[_pos+1] && sensor[_unit].number == (uint8_t)radio.Data[_pos+2]) {
-                  _resp = 0;
-                  break;
-                }
-              }
-                if (_resp) { // if unit not present already
-                  sensors++;
-                  sensor[sensors-1].address = radio.GetSender()+RADIO_UNIT_OFFSET;
-                  sensor[sensors-1].type    = radio.Data[_pos+1];
-                  sensor[sensors-1].number  = (uint8_t)radio.Data[_pos+2];
-                  sensor[sensors-1].setting = (uint8_t)radio.Data[_pos+3];
-                  sensor[sensors-1].value   = 0;
-                  sensor[sensors-1].last_OK = nilTimeNow();    // update current timestamp
-                  _tmp[0] = sensor[sensors-1].type + 32; _tmp[1] = 'R'; _tmp[2] = 48 + sensor[sensors-1].address; _tmp[3] = 0; pushToLog(_tmp);
-                  /*
-                  WS.print(F("Sens reg: ")); WS.println(sensors);
-                  WS.print(sensor[sensors-1].address);
-                  WS.print(sensor[sensors-1].type);
-                  WS.println(sensor[sensors-1].number);
-                  WS.println(sensor[sensors-1].setting,BIN);
-                  WS.println(sensor[sensors-1].value);
-                  */
-                } else {
-                  sensor[_unit].address = radio.GetSender()+RADIO_UNIT_OFFSET;
-                  sensor[_unit].type    = radio.Data[_pos+1];
-                  sensor[_unit].number  = (uint8_t)radio.Data[_pos+2];
-                  sensor[_unit].setting = (uint8_t)radio.Data[_pos+3];
-                  sensor[_unit].value   = 0;
-                  sensor[_unit].last_OK = nilTimeNow();    // update current timestamp
-                  _tmp[0] = sensor[_unit].type + 32; _tmp[1] = 'r'; _tmp[2] = 48 + sensor[_unit].address; _tmp[3] = 0; pushToLog(_tmp);
-                  /*
-                  WS.print(F("Sens rereg: ")); WS.println(_unit+1);
-                  WS.print(sensor[_unit].address);
-                  WS.print(sensor[_unit].type);
-                  WS.println(sensor[_unit].number);
-                  WS.println(sensor[_unit].setting,BIN);
-                  WS.println(sensor[_unit].value);
-                  */
-                }
-                _pos += 4;
-                break;
-                default: 
-                _pos++;
-                _tmp[0] = 'U'; _tmp[1] = 'E'; _tmp[2] = 0; pushToLog(_tmp);
-                break;
-              }
-            } while (_pos < *radio.DataLen);
-          }
+            register_t *p = unit_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
+            if (p == 0) {
+              _tmp[0] = 'F'; _tmp[1] = 'U'; _tmp[2] = 0; pushToLog(_tmp); // Sensor queue is full
+              return; // Continue if no free space.
+            }
+            p->unit    = (char)radio.Data[_pos];    
+            p->address = radio.GetSender()+RADIO_UNIT_OFFSET;
+            p->type    = radio.Data[_pos+1];
+            p->number  = (uint8_t)radio.Data[_pos+2];
+            p->setting = (uint8_t)radio.Data[_pos+3];
+            unit_fifo.signalData();   // Signal idle thread data is available.
+            _pos+=4;
+          } while (_pos < *radio.DataLen);
+        }
 
         // Sensors
-          if ((char)radio.Data[0] == 'S') {
-            _pos = 1;
-            do {
+        if ((char)radio.Data[0] == 'S') {
+          _pos = 1;
+          do {
             sensor_t *p = sensor_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
             if (p == 0) {
               _tmp[0] = 'F'; _tmp[1] = 'S'; _tmp[2] = 0; pushToLog(_tmp); // Sensor queue is full
               return; // Continue if no free space.
             }    
             p->address = radio.GetSender()+RADIO_UNIT_OFFSET;
-            p->type    = radio.Data[1];
-            p->number  = (uint8_t)radio.Data[2];
-            u.b[0] = radio.Data[3]; u.b[1] = radio.Data[4]; u.b[2] = radio.Data[5]; u.b[3] = radio.Data[6];
+            p->type    = radio.Data[_pos];
+            p->number  = (uint8_t)radio.Data[_pos+1];
+            u.b[0] = radio.Data[_pos+2]; u.b[1] = radio.Data[_pos+3]; u.b[2] = radio.Data[_pos+4]; u.b[3] = radio.Data[_pos+5];
             p->value   = u.fval;
             p->last_OK = nilTimeNow();    // update current timestamp
             sensor_fifo.signalData();   // Signal idle thread data is available.
             _pos+=6;
-          } while (_pos < RX_msg.data_length);
+          } while (_pos < *radio.DataLen);
         } // if 'S'
 
         if (radio.ACKRequested()) radio.SendACK();
@@ -2788,12 +2694,12 @@ NIL_THREAD(RadioThread, arg) {
 //
 NIL_WORKING_AREA(waSensorThread, 128);  
 NIL_THREAD(SensorThread, arg) {
-  uint8_t _unit;
+  uint8_t _unit, _found;
   char _value[7];
   char _text[40];
 
   #if WEB_SERIAL_DEBUGGING 
-  WS.println(F("SensorThread started"));    
+  WS.println(F("Sensor thread started"));    
   #endif
 
   while (TRUE) {
@@ -2801,8 +2707,10 @@ NIL_THREAD(SensorThread, arg) {
     sensor_t* p = sensor_fifo.waitData(TIME_INFINITE);
     if (!p) return; // return if no data
 
+    _found = 0;
     for (_unit=0; _unit < sensors; _unit++) {
       if (sensor[_unit].address == p->address && sensor[_unit].type == p->type && sensor[_unit].number == p->number) {
+        _found = 1;
         sensor[_unit].value   = p->value;
         sensor[_unit].last_OK = p->last_OK;
         
@@ -2835,11 +2743,121 @@ NIL_THREAD(SensorThread, arg) {
           }
         }    
         nilSemSignal(&ETHSem);  // Exit region.
+        break; // no need to look for other
       } // if address 
     } // for
+    if (!_found) {
+      // call this address to register
+      _unit = sendCmd(p->address,1);
+    }
     
     // Signal FIFO slot is free.
     sensor_fifo.signalFree();
+  }
+}
+
+//------------------------------------------------------------------------------
+// Registration thread 
+//
+NIL_WORKING_AREA(waRegThread, 128);  
+NIL_THREAD(RegThread, arg) {
+  uint8_t _unit, _resp;
+
+  #if WEB_SERIAL_DEBUGGING 
+  WS.println(F("Registration thread started"));    
+  #endif
+
+  while (TRUE) {
+    // Check for data.  Use TIME_IMMEDIATE to prevent sleep in idle thread.
+    register_t* p = unit_fifo.waitData(TIME_INFINITE);
+    if (!p) return; // return if no data
+
+    switch(p->unit){
+      case 'K': // Key
+      _resp = 1;
+      for (_unit=0; _unit < units; _unit++) {
+        if (unit[_unit].address == p->address && unit[_unit].type == p->type && unit[_unit].number == p->number) {
+          _resp = 0;
+          break;
+        }
+      }
+        if (_resp) { // if unit not present already
+          units++;
+          unit[units-1].address = p->address;
+          unit[units-1].type    = p->type;
+          unit[units-1].number  = p->number;
+          unit[units-1].setting = p->setting;
+          _tmp[0] = 'U'; _tmp[1] = 'R'; _tmp[2] = 48 + unit[units-1].address; _tmp[3] = 0; pushToLog(_tmp);
+          /*
+          WS.print(F("Key reg: ")); WS.println(units);
+          WS.print(unit[units-1].address);
+          WS.print(unit[units-1].type);
+          WS.println(unit[units-1].number);
+          WS.println(unit[units-1].setting,BIN);
+          */
+        } else {
+          unit[_unit].address = p->address;
+          unit[_unit].type    = p->type;
+          unit[_unit].number  = p->number;
+          unit[_unit].setting = p->setting;
+          _tmp[0] = 'U'; _tmp[1] = 'r'; _tmp[2] = 48 + unit[_unit].address; _tmp[3] = 0; pushToLog(_tmp);
+          /*
+          WS.print(F("Key rereg: ")); WS.println(_unit+1);
+          WS.print(unit[_unit].address);
+          WS.print(unit[_unit].type);
+          WS.println(unit[_unit].number);
+          WS.println(unit[_unit].setting,BIN);
+          */
+        }
+        break;
+      case 'S': // Sensor
+      _resp = 1;
+      for (_unit=0; _unit < sensors; _unit++) {
+        if (sensor[_unit].address == p->address && sensor[_unit].type == p->type && sensor[_unit].number == p->number) {
+          _resp = 0;
+          break;
+        }
+      }
+        if (_resp) { // if unit not present already
+          sensors++;
+          sensor[sensors-1].address = p->address;
+          sensor[sensors-1].type    = p->type;
+          sensor[sensors-1].number  = p->number;
+          sensor[sensors-1].setting = p->setting;
+          sensor[sensors-1].value   = 0;
+          sensor[sensors-1].last_OK = nilTimeNow();    // update current timestamp
+          _tmp[0] = sensor[sensors-1].type + 32; _tmp[1] = 'R'; _tmp[2] = 48 + sensor[sensors-1].address; _tmp[3] = 0; pushToLog(_tmp);
+          /*
+          WS.print(F("Sens reg: ")); WS.println(sensors);
+          WS.print(sensor[sensors-1].address);
+          WS.print(sensor[sensors-1].type);
+          WS.println(sensor[sensors-1].number);
+          WS.println(sensor[sensors-1].setting,BIN);
+          WS.println(sensor[sensors-1].value);
+          */
+        } else {
+          sensor[_unit].address = p->address;
+          sensor[_unit].type    = p->type;
+          sensor[_unit].number  = p->number;
+          sensor[_unit].setting = p->setting;
+          sensor[_unit].value   = 0;
+          sensor[_unit].last_OK = nilTimeNow();    // update current timestamp
+          _tmp[0] = sensor[_unit].type + 32; _tmp[1] = 'r'; _tmp[2] = 48 + sensor[_unit].address; _tmp[3] = 0; pushToLog(_tmp);
+          /*
+          WS.print(F("Sens rereg: ")); WS.println(_unit+1);
+          WS.print(sensor[_unit].address);
+          WS.print(sensor[_unit].type);
+          WS.println(sensor[_unit].number);
+          WS.println(sensor[_unit].setting,BIN);
+          WS.println(sensor[_unit].value);
+          */
+        }
+        break;
+        default: _tmp[0] = 'U'; _tmp[1] = 'E'; _tmp[2] = 0; pushToLog(_tmp); 
+        break;
+    }
+    // Signal FIFO slot is free.
+    unit_fifo.signalFree();
   }
 }
 
@@ -2850,7 +2868,7 @@ NIL_WORKING_AREA(waWebThread, 320);
 NIL_THREAD(WebThread, arg) {
   
   #if WEB_SERIAL_DEBUGGING 
-  WS.println(F("WebThread started"));    
+  WS.println(F("Web thread started"));    
   #endif
 
   while (TRUE) {
@@ -2860,7 +2878,9 @@ NIL_THREAD(WebThread, arg) {
     nilSemSignal(&ETHSem);  // Exit region.
     
     nilThdSleepMilliseconds(10);
+    nilSemWait(&ETHSem);    // wait for slot
     client.loop(); // MQTT
+    nilSemSignal(&ETHSem);  // Exit region.
     //if (!client.loop()) WS.println(F("MQTT loop NC")); // MQTT
   }
 }
@@ -2909,6 +2929,7 @@ NIL_THREAD(Thread9, arg) {
  NIL_THREADS_TABLE_ENTRY(NULL, ServiceThread, NULL, waServiceThread, sizeof(waServiceThread))
  NIL_THREADS_TABLE_ENTRY(NULL, RadioThread, NULL, waRadioThread, sizeof(waRadioThread))
  NIL_THREADS_TABLE_ENTRY(NULL, SensorThread, NULL, waSensorThread, sizeof(waSensorThread))
+ NIL_THREADS_TABLE_ENTRY(NULL, RegThread, NULL, waRegThread, sizeof(waRegThread))
  NIL_THREADS_TABLE_ENTRY(NULL, WebThread, NULL, waWebThread, sizeof(waWebThread))
  NIL_THREADS_TABLE_ENTRY(NULL, Thread9, NULL, waThread9, sizeof(waThread9))
 
@@ -2958,7 +2979,9 @@ NIL_THREAD(Thread9, arg) {
   // UDP for NTP
   // moved to function // udpInited = udp.begin(NTP_LOCAL_PORT); // open socket on arbitrary port
   // MQTT connect
-  client.connect(str_MQTT_dev);
+  if (client.connect(str_MQTT_dev)) {
+    client.subscribe("OHS/In/#");;
+  }
 
   // Web server
   webserver.begin();
