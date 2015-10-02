@@ -211,8 +211,11 @@ struct register_t {
 };
 NilFIFO<register_t, 5> unit_fifo;
 
+// Free ticks
+#define idleSlots                 10
+volatile uint32_t idleCount[idleSlots];           
+volatile uint8_t  idlePointer    = 0;
 // Global variables
-volatile uint32_t idleCount      = 0;         // temporary free ticks
 volatile uint8_t  ACState        = 0;
 volatile uint16_t BatteryLevel   = 460;       // 13.8V
 volatile uint8_t  OUTs           = 0;         // Output pins
@@ -533,7 +536,13 @@ void webDebug(WebServer &server, WebServer::ConnectionType type, char *url_tail,
       server.printP(htmlHead);
       
       WS.resetRead(); // show all in buffer
-      server.printP(html_h1); server.printP(text_Debug); server.printP(html_e_h1);  server.printP(html_p);
+      server.printP(html_h1); server.printP(text_Debug); server.printP(html_e_h1); server.printP(html_p);
+      for (uint8_t i = 0; i < idleSlots; ++i){
+        if (i == idlePointer) server << "<B>" << idleCount[i] << "</B>"; 
+        else                  server << idleCount[i];
+        server.printP(text_spdashsp);
+      }
+      server.printP(html_e_p); server.printP(html_p);
       server.printP(html_pre);
       while (WS.isAvailable()) {
         data = WS.read();
@@ -2058,10 +2067,10 @@ NIL_THREAD(ZoneThread, arg) {
         switch((int16_t)(val-BatteryLevel)){
           case ALR_OK_LOW ... ALR_OK_HI:
             // All is OK no action
-          zone[i].last_event = 'O';
+            zone[i].last_event = 'O';
             zone[i].last_OK = nilTimeNow();    // update current timestamp
             break;
-            case ALR_PIR_LOW ... ALR_PIR_HI:
+          case ALR_PIR_LOW ... ALR_PIR_HI:
             //   group  armed                      group not have alarm
             if ((group[_group].setting & B1) && !((group[_group].setting >> 1) & B1) && !group[_group].arm_delay){             
               // if group not enabled log error to log. 
@@ -2086,23 +2095,23 @@ NIL_THREAD(ZoneThread, arg) {
             break;
           default: // Line is cut or short or tamper, no difference to alarm
             //  group not have alarm
-          if (!((group[_group].setting >> 1) & B1)){
+            if (!((group[_group].setting >> 1) & B1)){
               // if group not enabled log error to log. 
-            if (!(conf.group[_group] & B1)) {
-              _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = 48+_group; _tmp[3] = 0; pushToLog(_tmp);
-            } else {
-              if (zone[i].last_event == 'T') {
-                _tmp[0] = 'T'; _tmp[1] = 48+i; _tmp[2] = 0; pushToLog(_tmp);
-                  alarm_event_t* p = alarm_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
-                  if (p == 0) {
-                    _tmp[0] = 'F'; _tmp[1] = 'A'; _tmp[2] = 0; pushToLog(_tmp); // Alarm queue is full
-                    return; // Continue if no free space.
+              if (!(conf.group[_group] & B1)) {
+                _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = 48+_group; _tmp[3] = 0; pushToLog(_tmp);
+              } else {
+                if (zone[i].last_event == 'T') {
+                  _tmp[0] = 'T'; _tmp[1] = 48+i; _tmp[2] = 0; pushToLog(_tmp);
+                    alarm_event_t* p = alarm_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
+                    if (p == 0) {
+                      _tmp[0] = 'F'; _tmp[1] = 'A'; _tmp[2] = 0; pushToLog(_tmp); // Alarm queue is full
+                      return; // Continue if no free space.
+                    }
+                    p->zone = i; p->type = 'T';
+                    group[_group].setting |= (1 << 1); // Set alarm bit On
+                    alarm_fifo.signalData(); // Signal idle thread data is available.
                   }
-                  p->zone = i; p->type = 'T';
-                  group[_group].setting |= (1 << 1); // Set alarm bit On
-                  alarm_fifo.signalData(); // Signal idle thread data is available.
-                }
-                zone[i].last_event = 'T';
+                  zone[i].last_event = 'T';
               }
             }
             break;
@@ -2263,7 +2272,7 @@ NIL_THREAD(RS485RXThread, arg) {
             last_key[16] = 0;
           }
         } // for
-      } // unit is enabled for authorzation
+      } // unit is enabled for authorization
       else { // log disabled remote units
         _tmp[0] = 'U'; _tmp[1] = 'F'; _tmp[2] = 48 + RX_msg.address; _tmp[3] = 0; pushToLog(_tmp);
       } 
@@ -2275,7 +2284,7 @@ NIL_THREAD(RS485RXThread, arg) {
       do {
         register_t *p = unit_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
         if (p == 0) {
-          _tmp[0] = 'F'; _tmp[1] = 'U'; _tmp[2] = 0; pushToLog(_tmp); // Sensor queue is full
+          _tmp[0] = 'F'; _tmp[1] = 'R'; _tmp[2] = 0; pushToLog(_tmp); // Registration queue is full
           return; // Continue if no free space.
         }
         p->unit    = RX_msg.buffer[_pos];    
@@ -2340,7 +2349,6 @@ NIL_THREAD(LoggerThread, arg) {
 
     char* log_message = p->text; // Fetch and print data.
 
-    GSMisAlive = 1;
     // SMS handler
     if (GSMisAlive) {
       sms_send = 0; sms_text[0] = 0;
@@ -2380,11 +2388,23 @@ NIL_THREAD(LoggerThread, arg) {
                       strcat_P(sms_text, (char*)text_armed);  if (conf.SMS >> 8 & B1) sms_send = 1; break; // system armed
             case 'S': strcat_P(sms_text, (char*)text_Monitoring); strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_started); if (conf.SMS >> 7 & B1) sms_send = 1; break; // monitoring strted
             case 'X': strcat_P(sms_text, (char*)text_ALARM);  if (conf.SMS >> 6 & B1) sms_send = 1;
-            strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_Group); strcat_P(sms_text, (char*)text_sesp);
+                      strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_Group); strcat_P(sms_text, (char*)text_sesp);
                       strcat(sms_text, conf.group_name[log_message[15]-48]); // extra text for SMS
                       _group = log_message[15]-48;
                       break; // alarm
-            default:  strcat_P(sms_text, (char*)text_undefined);  if (conf.SMS >> 9 & B1) sms_send = 1; break; // unknown
+            /* ****************************** ADD
+            case 's': server.printP(text_started); break;   // boot
+            case 'M': 
+              server.printP(text_MQTT); server.printP(text_space);
+              switch(tmp[15]){
+                case 'F': server.printP(text_network); server.printP(text_space); server.printP(text_failed); break;
+                case 'O': server.printP(text_network); server.printP(text_space); server.printP(text_OK); break;
+                default:  server.printP(text_undefined); break; // unknown  
+                }
+              break;
+            */
+            default:  strcat_P(sms_text, (char*)text_undefined); // if (conf.SMS >> 9 & B1) sms_send = 1;
+              break; // unknown
           }
           break;
           case 'P':
@@ -2432,6 +2452,9 @@ NIL_THREAD(LoggerThread, arg) {
             sms_ok = Serial.ATsendSMSBegin(conf.tel_num[i]);
             if (sms_ok) sms_ok = Serial.ATsendSMSEnd(sms_text, sms_send);
             //WS.println(sms_ok);
+            while (Serial.ATWaitMsg()) { // wait for GSM modem
+              nilThdSleepMilliseconds(200);
+            }
             nilSemSignal(&GSMSem);  // Exit region.
           }
         }
@@ -2538,7 +2561,7 @@ NIL_THREAD(ServiceThread, arg) {
       // Battery is at low level but it might oscillate, so we wait for AC to recharge battery again.
       while (pinAC_OFF.read() == HIGH) { // The signal turns to be "High" when the power supply turns OFF
         delay(1000); // do nothing wait for power supply shutdown
-    } 
+      } 
 
       nilSysUnlock(); // in case the power is restored we go on
       _tmp[0] = 'S'; _tmp[1] = 'A'; _tmp[2] = 'L'; _tmp[3] = 0; pushToLog(_tmp); // AC ON
@@ -2646,7 +2669,7 @@ NIL_THREAD(RadioThread, arg) {
           do {
             register_t *p = unit_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
             if (p == 0) {
-              _tmp[0] = 'F'; _tmp[1] = 'U'; _tmp[2] = 0; pushToLog(_tmp); // Sensor queue is full
+              _tmp[0] = 'F'; _tmp[1] = 'R'; _tmp[2] = 0; pushToLog(_tmp); // Registration queue is full
               return; // Continue if no free space.
             }
             p->unit    = (char)radio.Data[_pos];    
@@ -2708,7 +2731,7 @@ NIL_THREAD(SensorThread, arg) {
     if (!p) return; // return if no data
 
     _found = 0;
-    for (_unit=0; _unit < sensors; _unit++) {
+    for (_unit = 0; _unit < sensors; _unit++) {
       if (sensor[_unit].address == p->address && sensor[_unit].type == p->type && sensor[_unit].number == p->number) {
         _found = 1;
         sensor[_unit].value   = p->value;
@@ -2788,26 +2811,16 @@ NIL_THREAD(RegThread, arg) {
           unit[units-1].number  = p->number;
           unit[units-1].setting = p->setting;
           _tmp[0] = 'U'; _tmp[1] = 'R'; _tmp[2] = 48 + unit[units-1].address; _tmp[3] = 0; pushToLog(_tmp);
-          /*
-          WS.print(F("Key reg: ")); WS.println(units);
-          WS.print(unit[units-1].address);
-          WS.print(unit[units-1].type);
-          WS.println(unit[units-1].number);
-          WS.println(unit[units-1].setting,BIN);
-          */
+          /* WS.print(F("Key reg: ")); WS.println(units); WS.print(unit[units-1].address); WS.print(unit[units-1].type);
+          WS.println(unit[units-1].number); WS.println(unit[units-1].setting,BIN); */
         } else {
           unit[_unit].address = p->address;
           unit[_unit].type    = p->type;
           unit[_unit].number  = p->number;
           unit[_unit].setting = p->setting;
           _tmp[0] = 'U'; _tmp[1] = 'r'; _tmp[2] = 48 + unit[_unit].address; _tmp[3] = 0; pushToLog(_tmp);
-          /*
-          WS.print(F("Key rereg: ")); WS.println(_unit+1);
-          WS.print(unit[_unit].address);
-          WS.print(unit[_unit].type);
-          WS.println(unit[_unit].number);
-          WS.println(unit[_unit].setting,BIN);
-          */
+          /* WS.print(F("Key rereg: ")); WS.println(_unit+1); WS.print(unit[_unit].address); WS.print(unit[_unit].type);
+          WS.println(unit[_unit].number); WS.println(unit[_unit].setting,BIN); */
         }
         break;
       case 'S': // Sensor
@@ -2827,14 +2840,9 @@ NIL_THREAD(RegThread, arg) {
           sensor[sensors-1].value   = 0;
           sensor[sensors-1].last_OK = nilTimeNow();    // update current timestamp
           _tmp[0] = sensor[sensors-1].type + 32; _tmp[1] = 'R'; _tmp[2] = 48 + sensor[sensors-1].address; _tmp[3] = 0; pushToLog(_tmp);
-          /*
-          WS.print(F("Sens reg: ")); WS.println(sensors);
-          WS.print(sensor[sensors-1].address);
-          WS.print(sensor[sensors-1].type);
-          WS.println(sensor[sensors-1].number);
-          WS.println(sensor[sensors-1].setting,BIN);
-          WS.println(sensor[sensors-1].value);
-          */
+          /* WS.print(F("Sens reg: ")); WS.println(sensors); WS.print(sensor[sensors-1].address);
+          WS.print(sensor[sensors-1].type); WS.println(sensor[sensors-1].number); WS.println(sensor[sensors-1].setting,BIN);
+          WS.println(sensor[sensors-1].value); */
         } else {
           sensor[_unit].address = p->address;
           sensor[_unit].type    = p->type;
@@ -2843,14 +2851,9 @@ NIL_THREAD(RegThread, arg) {
           sensor[_unit].value   = 0;
           sensor[_unit].last_OK = nilTimeNow();    // update current timestamp
           _tmp[0] = sensor[_unit].type + 32; _tmp[1] = 'r'; _tmp[2] = 48 + sensor[_unit].address; _tmp[3] = 0; pushToLog(_tmp);
-          /*
-          WS.print(F("Sens rereg: ")); WS.println(_unit+1);
-          WS.print(sensor[_unit].address);
-          WS.print(sensor[_unit].type);
-          WS.println(sensor[_unit].number);
-          WS.println(sensor[_unit].setting,BIN);
-          WS.println(sensor[_unit].value);
-          */
+          /* WS.print(F("Sens rereg: ")); WS.println(_unit+1); WS.print(sensor[_unit].address);
+          WS.print(sensor[_unit].type); WS.println(sensor[_unit].number);
+          WS.println(sensor[_unit].setting,BIN); WS.println(sensor[_unit].value); */
         }
         break;
         default: _tmp[0] = 'U'; _tmp[1] = 'E'; _tmp[2] = 0; pushToLog(_tmp); 
@@ -2896,18 +2899,12 @@ NIL_THREAD(Thread9, arg) {
   #endif
   
   while (TRUE) {
-    nilThdSleepSeconds(10);    
-
+    nilThdSleepSeconds(1);    
     //WS.print(nilTimeNow());
-    //WS.print(F(", Bogo:"));
-    //WS.println(idleCount);
-    //WS.print(F(", "));
     //nilPrintStackSizes(&WS);
     //nilPrintUnusedStack(&WS);
-    
-
-
-    idleCount = 0; // reset idle
+    idlePointer++; if (idlePointer==idleSlots) idlePointer=0;
+    idleCount[idlePointer] = 0; // reset idle
   }
 }
 
@@ -3012,9 +3009,38 @@ void loop() {
   while (1) {
     // Disable interrupts to insure increment is atomic.
     nilSysLock();
-    idleCount++;
+    idleCount[idlePointer]++;
     nilSysUnlock();
   }
 }
-//------------------------------------------------------------------------------
-// Balast
+
+
+/*
+Zone thread started
+-sms b-AT+CMGS="+420731435556"
+-sms s1-> System: Configuration undefined.
+-sms s2-+CMGS: 111
+-sms el-
+-sms s3-OK
+-sms b-AT+CMGS="+420732742788"
+-sms s1-> System: Configuration undefined.
+-sms s2-+CMGS: 112
+-sms el-
+-sms s3-OK
+-sms b-AT+CMGS="+420731435556"
+-sms s1-uthentication: zone Vstupni dvere is open.
+-sms b-AT+CMGS="+420732742788"
+-sms s1-> Authentication: zone Vstupni dvere is open.
+-sms s2-+CMGS: 114
+-sms el-
+-sms s3-OK
+-sms b-AT+CMGS="+420731435556"
+-sms s1-uthentication: zone Vstupni dvere is open.
+-sms b-AT+CMGS="+420732742788"
+-sms s1-> Authentication: zone Vstupni dvere is open.
+-sms s2-+CMGS: 116
+-sms el-
+-sms s3-OK
+4AT+C
+5ERROR
+*/
