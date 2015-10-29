@@ -8,7 +8,12 @@
 #include "EthernetServer.h"
 #include "Dhcp.h"
 
+//#define MAX_SOCK_NUM 4
+#ifdef W5200
+#define MAX_SOCK_NUM 8
+#else
 #define MAX_SOCK_NUM 4
+#endif
 
 class EthernetClass {
 private:

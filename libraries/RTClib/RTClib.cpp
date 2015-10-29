@@ -68,7 +68,7 @@ DateTime::DateTime (long t) {
     t /= 60;
     hh = t % 24;
     //uint16_t days = t / 24;
-    days = t / 24; cdays = days;
+    days = t / 24;
     uint8_t leap;
     for (yOff = 0; ; ++yOff) {
         leap = yOff % 4 == 0;
@@ -205,6 +205,7 @@ char* DateTime::formatedUpTime() {
   static char _tmp_itoa[5];
   _tmp_ts[0] = 0;
   
+  uint16_t days = date2days(yOff, m, d);
   itoa(days, _tmp_itoa, 10);
   strcat (_tmp_ts, _tmp_itoa);
   strcat_P (_tmp_ts, RTC_text_days);

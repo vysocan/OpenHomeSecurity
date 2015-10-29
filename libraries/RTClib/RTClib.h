@@ -26,16 +26,16 @@ public:
     uint8_t second() const      { return ss; }
     uint8_t dayOfWeek() const;
     // 
-    char* timestamp();
-    char* formatedDateTime();
-    char* formatedUpTime();
+    char *timestamp();
+    char *formatedDateTime();
+    char *formatedUpTime();
 
     // 32-bit times as seconds since 1/1/2000
     long get() const;
 
 protected:
     uint8_t yOff, m, d, hh, mm, ss;
-    uint16_t days, cdays;
+    uint16_t days;
     char _tmp_ts[20];
 
 };

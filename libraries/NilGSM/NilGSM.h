@@ -9,8 +9,9 @@
 #include <Arduino.h>
 
 #include <NilRTOS.h>
+#include <WebSerial.h>
 
-#define AT_WAIT            30          // how many delay loops wait for modem response
+#define AT_WAIT            50          // how many delay loops wait for modem response
 #define AT_DELAY           100         // delay in millis for modem response 
 #define AT_OK              "OK"        // 
 #define AT_is_alive        "AT"        // --'CR'OK'CR''CR'

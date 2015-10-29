@@ -13,7 +13,7 @@
  *      Modified for NILRTOS.
  *      Replaced custom CRC by util/crc16.h
  *      atmega1284P, second UART
- *      Tested on final hardware, fixed few small bug, worknikg OK
+ *      Tested on final hardware, fixed few small bug, working fine
  *  
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * 
@@ -25,7 +25,7 @@
  * - Required fields
  * ~ Data and signature fields
  * A Address - 4 bits form and 4 bits to address.
- *   0  is master
+ *   0  is master, but not really as any node can drive communication
  *   15 is broadcast to all
  *   14 addresses left for other devices
  * 
