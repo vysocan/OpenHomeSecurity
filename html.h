@@ -52,6 +52,18 @@
 	P(text_Voltage)        = "Voltage";
 	P(text_all)            = "all";
 
+	P(text_i_OK)             = "<i class='fa fa-check'></i>";
+	P(text_i_ALARM)          = "<i class='fa fa-bell'></i>";
+	P(text_i_disabled)       = "<i class='fa fa-ban'></i>";
+	P(text_i_starting)       = "<i class='fa fa-spinner fa-pulse'></i>";
+	P(text_i_home)           = "<i class='fa fa-home'></i>";
+	P(text_i_question)       = "<i class='fa fa-question'></i>";
+	P(text_i_zone)           = "<i class='fa fa-square-o'></i>";
+	P(text_i_qlobe)          = "<i class='fa fa-globe'></i>";
+	P(text_i_auth)           = "<i class='fa fa-lock'></i>";
+	P(text_i_phone)          = "<i class='fa fa-mobile'></i>";
+	P(text_i_key)            = "<i class='fa fa-key'></i>";
+	P(text_i_sens)           = "<i class='fa fa-share-alt'></i>";
 
 	P(text_nr)     = "not registered"; 
     P(text_rh)     = "registered (home)";
@@ -169,28 +181,24 @@
 	P(html_table_tr_th)   = "<table><tr><th>";
 	P(html_e_td)    = "</td>";
 	P(html_e_td_td)    = "</td><td>";
-	P(html_e_td_td_sesp)    = "</td><td>: ";
 	P(html_td)      = "<td>";
 	P(html_e_tr)    = "</tr>";
 	P(html_e_td_e_tr)    = "</td></tr>";
 	P(html_tr)      = "<tr>";
 	P(html_tr_td)      = "<tr><td>";
-	P(html_tr_ev)   ="<tr class='even'>";
-	P(html_tr_od)   ="<tr class='odd'>";
 	P(html_e_th)    = "</th>";
 	P(html_e_th_th)    = "</th><th>";
 	P(html_e_th_e_tr)    = "</th><tr>";
 	P(html_th)      = "<th>";
 	P(html_h1)      = "<h1>";
 	P(html_e_h1)    = "</h1>";
-	P(html_p)       = "<p>";
-	P(html_e_p)     = "</p>";
 	P(html_pre)     = "<pre>";
 	P(html_e_pre)     = "</pre>";
 	P(html_form_s)    = "<form action='";
 	P(html_form_e)    = "' method='post'>";
 	P(html_e_form)  = "</form>";
 	P(html_select)  = "<select name='";
+	P(html_select_submit)  = "<select onchange='this.form.submit()' name='";
 	P(html_e_select)  = "</select>";
 	P(html_s_tag)   = "<input type='text' name='";
 	P(html_m_tag)   = "' value='";
@@ -199,24 +207,24 @@
 	P(html_e_option)  = "</option>";
 	P(html_selected)  = "' selected>";
 
-	
-
 	P(html_br)     = "</br>";
 
-
-	P(htmlHead) = "<html><head><title>Open home security</title>"
-	"<style type=\"text/css\">\n"
+//	
+//	
+//	
+	/*
 	"BODY {font-family:sans-serif}\n"
 	"TABLE {font-size:10pt;border:0px}\n"
 	"TD {text-align:left;padding:3px}\n"
 	"TH {text-align:left;background-color:#E9E9E9;padding:3px}\n"
 	"H1 {font-size:14pt;text-decoration:underline}\n"
 	"P {font-size:10pt}\n"
-	"DIV {font-size:12pt}\n"
+	"DIV {font-size:12pt}\n"	
 	"tr.even {color:#000;background-color:#E9E9E9}\n"
 	"tr.odd {color:#000;background-color:#F5F5F5}\n"
 	"input, select, {height:2em}"
-	"</style></head>\n<body><div>"
+
+		"<div>"
 	"<a href='/'>Home</a> "
 	"<a href='set'>Global</a> "
 	"<a href='zone'>Zones</a> "
@@ -228,9 +236,83 @@
 	"<a href='mqtt'>MQTT</a> "
 	"<a href='log'>Log</a> "
 	"<a href='debug'>Debug</a>"
-	"<hr></div>";  
-	P(htmlFoot) = "</body></html>";	
-	
+	"<hr></div>"
+	*/
+
+	P(html_radio_s)  = "<div class='rm'>";
+	P(html_radio_sl) = "<div class='rml'>";
+	P(html_div_e)    = "</div>";
+
+	P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open home security</title>"
+	"<style type=\"text/css\">\n"
+	"@import url(\"http://fonts.googleapis.com/css?family=Montserrat:400,700\");\n"
+	"@import url(\"http://netdna.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.css\");\n"
+	"* {margin:0;padding:0}\n"
+	"*, *:before, *:after {box-sizing:border-box}\n"
+	"html, body {height:100%}\n"
+	"body {font: 14px/1 'Montserrat', sans-serif;color: #333;background: #333;overflow-x: hidden}\n"
+	".wrp {display:flex;min-height:100%}\n"
+	".sbar {position:absolute;width:220px}\n"
+	".content {flex:1;padding:10px 10px 1px 30px;;background:#eee;box-shadow:0 0 5px black;transform: translate3d(0,0,0);transition:transform .3s}\n"
+	".content.isOpen {transform: translate3d(220px,0,0)}\n"
+	".title {font-size:22px;line-height:50px;text-align:center;color:#eee;border-bottom:1px solid #222;background:#2a2a2a}\n"
+	".nav li a {position:relative;display:block;padding:15px 15px 15px 50px;color:#eee;border-bottom:1px solid #222}\n"
+	".nav li a:before {font:14px fontawesome;position:absolute;top:14px;left:20px}\n"
+	".nav li:nth-child(1) a:before {content:'\\f015'}"
+	".nav li:nth-child(2) a:before {content:'\\f0ac'}"
+	".nav li:nth-child(3) a:before {content:'\\f096'}"
+	".nav li:nth-child(4) a:before {content:'\\f24d'}"
+	".nav li:nth-child(5) a:before {content:'\\f084'}"
+	".nav li:nth-child(6) a:before {content:'\\f10b'}"
+	".nav li:nth-child(7) a:before {content:'\\f023'}"
+	".nav li:nth-child(8) a:before {content:'\\f1e0'}"
+	".nav li:nth-child(9) a:before {content:'\\f0e8'}"
+	".nav li:nth-child(10) a:before {content:'\\f15c'}"
+	".nav li:nth-child(11) a:before {content:'\\f085'}"
+	".nav li a:hover {background:#444}\n"
+	".nav li a.active {box-shadow:inset 5px 0 0 #5b5,inset 6px 0 0 #222;background:#444}\n"
+	"input, select {cursor:pointer;height: 25px;border: 0px none;outline: 0px none;box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.2);padding: 0px 5px;background:#fff}\n"
+	"input[type='submit'] {margin: 0px 10px 10px 0px}\n"
+	"h1 {margin: 0px 0 5px;font-size: 28px;padding: 10px}\n"
+	"h2 {font-size: 18px;font-weight: 400;color: #999}\n"
+	"table{margin:0 0 10px;border-collapse:collapse;border:1px solid #bbb;background-color:#fff}"
+	"th, td {padding:10px;border-right:1px solid #bbb}"
+	"th {font-weight:600;background:#ddd}"
+	"tr:nth-child(even) {background: #eee}"
+	"a:link {text-decoration:none}\n"
+	".rm, .rml {display:flex;height:25px;margin:0;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);overflow:hidden}\n"
+	".rm {width:80px;}\n"
+	".rml {width:160px;}\n"
+//	".rt {padding:0 20px;line-height:30px}\n"
+	".rc {flex:1}\n"
+	".rc input {position:absolute;opacity:0}\n"
+	".rc label {display:block;height:25px;line-height:25px;text-align:center;cursor:pointer}\n"
+	".rc label:hover {background:#eee}\n"
+	".rc input:checked ~ label {color:#fff;background:#5b5}\n"
+	"</style></head>\n<body>"
+	"<div class='wrp'><div class='sbar'><div class='title'>O H S</div><ul class='nav'>";
+
+	P(htmlHead_e) = "</ul></div><div class='content isOpen'>";
+
+	P(htmlFoot) = "</div></div></body></html>";	
+
+	P(html_li_a)       = "<li><a ";
+	P(html_li_e)       = "</a></li>";
+	P(html_c_active)   = "class='active' ";
+	P(html_href)        = "href='";
+	P(html_menu_Home)   = "/'>Home";
+	P(html_menu_Global) = "set'>Global";
+	P(html_menu_Zones)  = "zone'>Zones";
+	P(html_menu_Groups) = "group'>Groups";
+	P(html_menu_Keys)   = "key'>Keys";
+	P(html_menu_Phone)  = "phone'>Phone";
+	P(html_menu_Auth)   = "auth'>Authentication";
+	P(html_menu_Sens)   = "sens'>Sensors";
+	P(html_menu_MQTT)   = "mqtt'>MQTT";
+	P(html_menu_Log)    = "log'>Log";
+	P(html_menu_Debug)  = "debug'>Debug";
+
 #endif
 
 
+	
