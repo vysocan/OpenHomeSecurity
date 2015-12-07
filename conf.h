@@ -6,6 +6,7 @@
 #define KEY_LEN        8         // key 
 #define NUM_OF_PHONES  8         // max number of phones
 #define PHONE_LEN      16        // phone name 
+#define EMAIL_LEN      30        // email address
 #define ALR_GROUPS     16        // Groups
 
 // ADC Alarm settings refer to voltage divider and input voltage level
@@ -18,6 +19,13 @@
 #define ALR_PIR_HI     -130
 
 #define VERSION 100
+
+typedef enum {
+  alert_SMS = 0,
+  alert_email = 1,
+  alert_page = 2
+} alert_t;
+
 // Global configuration in chip EEPROM
 struct config_t {
   uint16_t version;
@@ -30,7 +38,7 @@ struct config_t {
   char     key[NUM_OF_KEYS][KEY_LEN+1];
   char     key_name[NUM_OF_KEYS][16];
   char     tel_name[NUM_OF_PHONES][PHONE_LEN];
-  uint16_t SMS;
+  uint16_t SMS; // **** NOT USED
   uint16_t group[ALR_GROUPS];
   char     group_name[ALR_GROUPS][16];
   uint8_t  tel[NUM_OF_PHONES];
@@ -41,6 +49,13 @@ struct config_t {
   char     user[11];
   char     password[11];
   char     user_pass[31];
+  char     email[NUM_OF_PHONES][EMAIL_LEN];
+  uint8_t  power_loss;
+  uint16_t alerts[3]; // for alert configuration, SMS, email, page
+  char     SMTP_user[31];
+  char     SMTP_password[11];
+  //char     b64_SMTP_user[41];
+  //char     b64_SMTP_password[17];
 } conf;
 
 void setDefault(){
@@ -64,6 +79,14 @@ void setDefault(){
   conf.tel_name[5][0] = '-';conf.tel_name[5][1] = 0;
   conf.tel_name[6][0] = '-';conf.tel_name[6][1] = 0;
   conf.tel_name[7][0] = '-';conf.tel_name[7][1] = 0;
+  conf.email[0][0] = '-';conf.email[0][1] = 0;
+  conf.email[1][0] = '-';conf.email[1][1] = 0;
+  conf.email[2][0] = '-';conf.email[2][1] = 0;
+  conf.email[3][0] = '-';conf.email[3][1] = 0;
+  conf.email[4][0] = '-';conf.email[4][1] = 0;
+  conf.email[5][0] = '-';conf.email[5][1] = 0;
+  conf.email[6][0] = '-';conf.email[6][1] = 0;
+  conf.email[7][0] = '-';conf.email[7][1] = 0;
   conf.tel[0] = 0x1E;
   conf.tel[1] = 0x1E;
   conf.tel[2] = 0x1E;
@@ -85,7 +108,7 @@ void setDefault(){
   conf.zone_name[10][0] = '-';conf.zone_name[10][1] = 0;
   conf.zone_name[11][0] = '-';conf.zone_name[11][1] = 0;
   conf.zone_name[12][0] = '-';conf.zone_name[12][1] = 0;
-  conf.key[0][0] = 0xFF;conf.key[0][1] = 0xFF;conf.key[0][2] = 0xFF;
+  conf.key[0][0] = 0xFF;conf.key[0][1] = 0;
   conf.key[1][0] = 0xFF;conf.key[1][1] = 0;
   conf.key[2][0] = 0xFF;conf.key[2][1] = 0;
   conf.key[3][0] = 0xFF;conf.key[3][1] = 0;
@@ -213,6 +236,11 @@ void setDefault(){
   conf.mqtt_serv_ip[0] = 10; conf.mqtt_serv_ip[1] = 10; conf.mqtt_serv_ip[2] = 10; conf.mqtt_serv_ip[3] = 1;
   conf.user[0] = '#'; conf.user[1] = 0;
   conf.password[0] = '#'; conf.password[1] = 0;
+  conf.power_loss = 0;
+  conf.alerts[alert_SMS]   = 0x0000;
+  conf.alerts[alert_email] = 0x0000;
+  conf.alerts[alert_page]  = 0x0000;
+ 
 }  
 
 #endif

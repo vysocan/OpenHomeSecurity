@@ -24,16 +24,15 @@
 //                       +--------+
 //
 #include <NilRTOS.h>
-
 #include <DigitalIO.h>
+#include <SPI.h>
 
-#include "SPI.h"
-
-#include "Ethernet.h"
+#include <Ethernet.h>
 static uint8_t mac[6] = { 0x02, 0xAA, 0xBB, 0xCC, 0x00, 0x22 };  // CHANGE THIS TO YOUR OWN UNIQUE VALUE
 IPAddress  our_ip( 10,  10,  10, 184);  // CHANGE THIS TO MATCH YOUR HOST NETWORK
 IPAddress gateway( 10,  10,  10, 254);  // CHANGE THIS TO MATCH YOUR HOST NETWORK
 IPAddress  subnet(255, 255, 255,   0);  // CHANGE THIS TO MATCH YOUR HOST NETWORK
+
 // NTP
 IPAddress  timeIP( 81,   0, 239, 181);  // ntp.globe.cz 
 #include <EthernetUdp.h>                      //
@@ -46,6 +45,7 @@ IPAddress  timeIP( 81,   0, 239, 181);  // ntp.globe.cz
 #define NTP_POLL_MAX           20             // poll response up to this many times
 const long ntpFirstFourBytes = 0xEC0600E3;    // NTP request header
 EthernetUDP udp;                              // A UDP instance to let us send and receive packets over UDP
+
 // WebServer
 #define WEBDUINO_FAVICON_DATA     "" // disable favicon
 #define WEBDUINO_AUTH_REALM       "OHS"
@@ -54,11 +54,6 @@ EthernetUDP udp;                              // A UDP instance to let us send a
 #include "WebServer.h"
 WebServer webserver(PREFIX, 80);
 #include "html.h"
-// no-cost stream operator as described at 
-// http://sundial.org/arduino/?page_id=119
-template<class T>
-inline Print &operator <<(Print &obj, T arg)
-{ obj.print(arg); return obj; }
 
 // MQTT 
 #include <PubSubClient.h>
@@ -66,8 +61,16 @@ inline Print &operator <<(Print &obj, T arg)
 void callback(char* topic, byte* payload, unsigned int length);
 byte MQTTIP[]       = { 10,  10,  10, 126};
 char str_MQTT_dev[] = "OHS"; // device name
-EthernetClient MQTTClient;
-PubSubClient client(MQTTIP, 1883, callback, MQTTClient);
+EthernetClient MQTTethClient;
+PubSubClient client(MQTTIP, 1883, callback, MQTTethClient);
+
+//SMTP
+//#include <Client.h>
+#include <Mail.h>
+#include <SMTPClient.h>
+EthernetClient SMTPethClient;
+//SMTPClient SMTPclient(SMTPethClient, "mail.smtp2go.com", 2525);
+//Mail mail;
 
 #include <RFM12B.h>
 // You will need to initialize the radio by telling it what ID it has and what network it's on
@@ -117,13 +120,13 @@ struct log_event_t {
 };
 NilFIFO<log_event_t, 9> log_fifo;
 
-#define WEB_SERIAL_DEBUGGING 1
+#define WEB_SERIAL_DEBUGGING 2
 #if WEB_SERIAL_DEBUGGING 
 #include <WebSerial.h>
 #endif 
 
 // Global configuration and default setting
-#include <conf.h>
+#include "conf.h"
 
 struct alarm_event_t {
   uint8_t zone;
@@ -148,8 +151,8 @@ struct group_t {
   //       |||||||-  Alarm
   //       ||||||||-  Armed
   //      B00000000
-  uint8_t setting;
-  uint8_t arm_delay;
+  uint8_t setting   = 0;
+  uint8_t arm_delay = 0;
 };
 group_t group[ALR_GROUPS];
 
@@ -194,13 +197,39 @@ struct unit_t {
 //          |||||||- 0 .. 15
 //          |||||||-  
 //          |||||||- 
-//          ||||||||-  Enabled   
+//          ||||||||- Enabled   
 //          00000000
   uint8_t setting;
 };
-#define AUTH_UNITS 16
+#define AUTH_UNITS 8
 unit_t unit[AUTH_UNITS];
 volatile uint8_t units = 0;
+
+// Triggers 
+struct trigger_t {
+  uint8_t address    = 0;
+  char    type       = 'U';
+  uint8_t number     = 0;
+//          |- MQTT publish
+//          ||- Alerting enabled 
+//          |||- Is alerted/triggered
+//          ||||- Free
+//          |||||- Free
+//          ||||||- Free
+//          |||||||- Pass value or constant
+//          ||||||||- Enabled   
+//          00000000     
+  uint8_t setting    = 0;
+  char    symbol     = '/';
+  uint8_t value      = 0;
+  uint8_t constant   = 0;
+  uint8_t to_address = 0;
+  char    to_type    = 'U';
+  uint8_t to_number  = 0;
+};
+#define TRIGGER_UNITS 1
+trigger_t trigger[TRIGGER_UNITS];
+volatile uint8_t triggers = TRIGGER_UNITS;
 
 // Registration
 struct register_t {
@@ -211,6 +240,8 @@ struct register_t {
   uint8_t setting;
 };
 NilFIFO<register_t, 5> unit_fifo;
+
+
 
 // Free ticks
 #define idleSlots                 10
@@ -229,6 +260,8 @@ char     last_key[KEY_LEN+1] = "UUUUUUUU";
 
 char tmp[17];       // for logger 
 char _tmp[4];       // for logger 
+
+char  b64_text[30]; // encode text
 
 // GSM modem 
 uint8_t GSMisAlive = 0, GSMreg = 4, GSMstrength = 0, GSMsetSMS = 0;
@@ -276,7 +309,6 @@ void pushToLog(char *what){
   strcat (p->text, "?");
   strcat (p->text, what);
 
-  //Serial.println(p->text);
   log_fifo.signalData();  // Signal idle thread data is available.
 }
 
@@ -397,6 +429,7 @@ void clearLog(){
   conf.ee_pos = 0;
   nilSemSignal(&TWISem);   // Exit region.
   //nilSysUnlock(); // unlock RTOS
+  _tmp[0] = 'S'; _tmp[1] = 'L'; _tmp[2] = 0; pushToLog(_tmp);
   eeprom_update_block((const void*)&conf, (void*)0, sizeof(conf)); // Save current configuration
 }
 
@@ -526,42 +559,49 @@ int base64_encode(char *output, char *input, uint8_t inputLen) {
 // W E B   P A G E S              W E B   P A G E S                W E B   P A G E S  
 // *********************************************************************************
 
+typedef enum {
+  menu_Home     = 1,
+  menu_Global   = 2,
+  menu_Zones    = 3,
+  menu_Groups   = 4,
+  menu_Keys     = 5,
+  menu_Contacts = 6,
+  menu_Auth     = 7,
+  menu_Sens     = 8,
+  menu_Triggers = 9,  
+  menu_MQTT     = 10,
+  menu_Log      = 11,
+  menu_Debug    = 12
+} menu_t;
+
 void webMenu(WebServer &server, uint8_t selected) {
   server.printP(htmlHead_s);
   server.printP(html_li_a);
-  if (selected == 1 ) { server.printP(html_c_active); }
-  server.printP(html_href); server.printP(html_menu_Home);
-  server.printP(html_li_e); server.printP(html_li_a);
-  if (selected == 2 ) { server.printP(html_c_active); }
-  server.printP(html_href); server.printP(html_menu_Global);
-  server.printP(html_li_e); server.printP(html_li_a);
-  if (selected == 3 ) { server.printP(html_c_active); }
-  server.printP(html_href); server.printP(html_menu_Zones);
-  server.printP(html_li_e); server.printP(html_li_a);
-  if (selected == 4 ) { server.printP(html_c_active); }
-  server.printP(html_href); server.printP(html_menu_Groups);
-  server.printP(html_li_e); server.printP(html_li_a);
-  if (selected == 5 ) { server.printP(html_c_active); }
-  server.printP(html_href); server.printP(html_menu_Keys);
-  server.printP(html_li_e); server.printP(html_li_a);
-  if (selected == 6 ) { server.printP(html_c_active); }
-  server.printP(html_href); server.printP(html_menu_Phone);
-  server.printP(html_li_e); server.printP(html_li_a);
-  if (selected == 7 ) { server.printP(html_c_active); }
-  server.printP(html_href); server.printP(html_menu_Auth);
-  server.printP(html_li_e); server.printP(html_li_a);
-  if (selected == 8 ) { server.printP(html_c_active); }
-  server.printP(html_href); server.printP(html_menu_Sens);
-  server.printP(html_li_e); server.printP(html_li_a);
-  if (selected == 9 ) { server.printP(html_c_active); }
-  server.printP(html_href); server.printP(html_menu_MQTT);
-  server.printP(html_li_e); server.printP(html_li_a);
-  if (selected == 10) { server.printP(html_c_active); }
-  server.printP(html_href); server.printP(html_menu_Log);
-  server.printP(html_li_e); server.printP(html_li_a);
-  if (selected == 11) { server.printP(html_c_active); }
-  server.printP(html_href); server.printP(html_menu_Debug);
-  server.printP(html_li_e); server.printP(htmlHead_e);
+  if (selected == menu_Home ) { server.printP(html_c_active); }
+  server.printP(html_href); server.printP(html_menu_Home); server.printP(html_li_e_li_a);
+  if (selected == menu_Global ) { server.printP(html_c_active); }
+  server.printP(html_href); server.printP(html_menu_Global); server.printP(html_li_e_li_a);
+  if (selected == menu_Zones ) { server.printP(html_c_active); }
+  server.printP(html_href); server.printP(html_menu_Zones); server.printP(html_li_e_li_a);
+  if (selected == menu_Groups ) { server.printP(html_c_active); }
+  server.printP(html_href); server.printP(html_menu_Groups); server.printP(html_li_e_li_a);
+  if (selected == menu_Keys ) { server.printP(html_c_active); }
+  server.printP(html_href); server.printP(html_menu_Keys); server.printP(html_li_e_li_a);
+  if (selected == menu_Contacts ) { server.printP(html_c_active); }
+  server.printP(html_href); server.printP(html_menu_Contacts); server.printP(html_li_e_li_a);
+  if (selected == menu_Auth ) { server.printP(html_c_active); }
+  server.printP(html_href); server.printP(html_menu_Auth); server.printP(html_li_e_li_a);
+  if (selected == menu_Sens ) { server.printP(html_c_active); }
+  server.printP(html_href); server.printP(html_menu_Sens); server.printP(html_li_e_li_a);
+  if (selected == menu_Triggers ) { server.printP(html_c_active); }
+  server.printP(html_href); server.printP(html_menu_Triggers); server.printP(html_li_e_li_a);
+  if (selected == menu_MQTT ) { server.printP(html_c_active); }
+  server.printP(html_href); server.printP(html_menu_MQTT); server.printP(html_li_e_li_a);
+  if (selected == menu_Log) { server.printP(html_c_active); }
+  server.printP(html_href); server.printP(html_menu_Log); server.printP(html_li_e_li_a);
+  if (selected == menu_Debug) { server.printP(html_c_active); }
+  server.printP(html_href); server.printP(html_menu_Debug); server.printP(html_li_e);
+  server.printP(htmlHead_e);
 }
 
 #if WEB_SERIAL_DEBUGGING 
@@ -572,7 +612,7 @@ void webDebug(WebServer &server, WebServer::ConnectionType type, char *url_tail,
     } else {  
       uint8_t data;
       server.httpSuccess();
-      webMenu(server, 11);
+      webMenu(server, menu_Debug);
       
       WS.resetRead(); // show all in buffer
       server.printP(html_h1); server.printP(text_Debug); server.printP(html_e_h1); 
@@ -581,6 +621,7 @@ void webDebug(WebServer &server, WebServer::ConnectionType type, char *url_tail,
         else                  server << idleCount[i];
         server.printP(text_spdashsp);
       }
+      server << "Conf size: " << sizeof(conf) << "</br>";
        
       server.printP(html_pre);
       while (WS.isAvailable()) {
@@ -631,7 +672,7 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       nilSemSignal(&TWISem);   // Exit region.
 
       server.httpSuccess();
-      webMenu(server, 1);
+      webMenu(server, menu_Home);
       server.printP(html_h1); server.printP(text_System); server.printP(html_e_h1);  
       server.printP(html_table_tr_td); 
       server.printP(text_Time); server.printP(html_e_td_td);
@@ -722,13 +763,14 @@ void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tai
         if (name[0] == 'n') ses_eeprom_add = conf.ee_pos - 336 ;
         if (name[0] == 'C') clearLog();
       } while (repeat);
-      server.httpSeeOther(PREFIX "/log");
+      server.httpSeeOther(PREFIX "/l");
     } else {  
       server.httpSuccess();
-      webMenu(server, 10);
+      webMenu(server, menu_Log);
       server.printP(html_h1); server.printP(text_Log); server.printP(html_e_h1); 
-      server.printP(html_form_s); server << PREFIX "/log"; server.printP(html_form_e);
+      server.printP(html_form_s); server << PREFIX "/l"; server.printP(html_form_e);
       server.printP(html_F_Clear); // Clear
+      server.printP(html_F_CL);
        
       server.printP(html_table_tr_th);
       server.printP(text_hash);
@@ -796,6 +838,7 @@ void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tai
                   default:  server.printP(text_undefined); break; // unknown  
                 }
               break;
+              case 'L': server.printP(text_Log); server.printP(text_space); server.printP(text_erased);break;     // Log cleared
               default:  server.printP(text_undefined); break; // unknown
             }
           break;
@@ -977,12 +1020,12 @@ void webSetZone(WebServer &server, WebServer::ConnectionType type, char *url_tai
           case 'e': saveConf(); break; // save to EEPROM
           }
         } while (repeat);
-        server.httpSeeOther(PREFIX "/zone");
+        server.httpSeeOther(PREFIX "/z");
       } else {
         server.httpSuccess();
-        webMenu(server, 3);
+        webMenu(server, menu_Zones);
         server.printP(html_h1); server.printP(text_Zone); server.printP(text_space); server.printP(text_setup); server.printP(html_e_h1); 
-        server.printP(html_form_s); server << PREFIX "/zone"; server.printP(html_form_e);
+        server.printP(html_form_s); server << PREFIX "/z"; server.printP(html_form_e);
 
         server.printP(html_table_tr_th);
         server.printP(text_hash);
@@ -1131,10 +1174,10 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
           case 'e': saveConf(); break; // save to EEPROM         
           }
         } while (repeat);
-        server.httpSeeOther(PREFIX "/group");
+        server.httpSeeOther(PREFIX "/g");
     } else {
       server.httpSuccess();
-      webMenu(server, 4);
+      webMenu(server, menu_Groups);
       server.printP(html_h1); server.printP(text_Group); server.printP(text_space); server.printP(text_setup); server.printP(html_e_h1);  
       server.printP(html_table_tr_th);
       server.printP(text_hash);
@@ -1214,7 +1257,7 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
         server.printP(html_e_td_e_tr);
       }
       server.printP(html_e_table); 
-      server.printP(html_form_s); server << PREFIX "/group"; server.printP(html_form_e);
+      server.printP(html_form_s); server << PREFIX "/g"; server.printP(html_form_e);
       
       
       server.printP(html_table_tr_td);
@@ -1322,10 +1365,10 @@ void webSetKey(WebServer &server, WebServer::ConnectionType type, char *url_tail
           case 'e': saveConf(); break; // save to EEPROM          
           }
         } while (repeat);
-        server.httpSeeOther(PREFIX "/key");
+        server.httpSeeOther(PREFIX "/k");
     } else {
       server.httpSuccess();
-      webMenu(server, 5);
+      webMenu(server, menu_Keys);
       server.printP(html_h1); server.printP(text_Key); server.printP(text_space); server.printP(text_setup); server.printP(html_e_h1); 
 
       server.printP(html_table_tr_th);
@@ -1346,7 +1389,7 @@ void webSetKey(WebServer &server, WebServer::ConnectionType type, char *url_tail
       }
       server.printP(html_e_table); 
 
-      server.printP(html_form_s); server << PREFIX "/key"; server.printP(html_form_e);      
+      server.printP(html_form_s); server << PREFIX "/k"; server.printP(html_form_e);      
       server.printP(html_table_tr_td);
       server.printP(text_Key); server.printP(html_e_td_td);
       server.printP(html_select_submit); server << "K"; server.printP(html_e_tag);
@@ -1381,9 +1424,9 @@ void webSetPhone(WebServer &server, WebServer::ConnectionType type, char *url_ta
   if (server.checkCredentials(conf.user_pass)) {
     if (type == WebServer::POST) {
       bool repeat;
-      char name[2], value[17];
+      char name[2], value[31];
       do {
-        repeat = server.readPOSTparam(name, 2, value, 17);
+        repeat = server.readPOSTparam(name, 2, value, 31);
         switch(name[0]){
           case 'P':
             n = strtol(value, NULL, 10);
@@ -1400,11 +1443,15 @@ void webSetPhone(WebServer &server, WebServer::ConnectionType type, char *url_ta
             strncpy (conf.tel_name[webTel], value, 16);
             conf.tel_name[webTel][15] = 0;
           break;
+          case 'm': // email
+            strncpy (conf.email[webTel], value, 16);
+            conf.email[webTel][15] = 0;
+          break;
           case 'o': // enable tel
             if (value[0] == '0') conf.tel[webTel] &= ~(1 << 0);
             else conf.tel[webTel] |= (1 << 0);
           break;
-          case 'a': // enable tel
+          case 'a': // global 
             if (value[0] == '0') conf.tel[webTel] &= ~(1 << 5);
             else conf.tel[webTel] |= (1 << 5);
           break;
@@ -1422,17 +1469,18 @@ void webSetPhone(WebServer &server, WebServer::ConnectionType type, char *url_ta
           case 'e': saveConf(); break; // save to EEPROM         
           }
         } while (repeat);
-        server.httpSeeOther(PREFIX "/phone");
+        server.httpSeeOther(PREFIX "/c");
       } else {
         server.httpSuccess();
-        webMenu(server, 6);
-        server.printP(html_h1); server.printP(text_Phone); server.printP(text_space); server.printP(text_setup); server.printP(html_e_h1); 
+        webMenu(server, menu_Contacts);
+        server.printP(html_h1); server.printP(text_Contact); server.printP(text_s); server.printP(text_space); server.printP(text_setup); server.printP(html_e_h1); 
 
         server.printP(html_table_tr_th);
         server.printP(text_hash);
         server.printP(html_e_th_th); server.printP(text_Enabled);
         server.printP(html_e_th_th); server.printP(text_Name);
         server.printP(html_e_th_th); server.printP(text_Number);
+        server.printP(html_e_th_th); server.printP(text_Email);
         server.printP(html_e_th_th); server.printP(text_Global);
         server.printP(html_e_th_th); server.printP(text_Group);
         server.printP(html_e_th_e_tr);
@@ -1441,7 +1489,8 @@ void webSetPhone(WebServer &server, WebServer::ConnectionType type, char *url_ta
           server << i+1; server.printP(text_dot); server.printP(html_e_td_td);
           (conf.tel[i] & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
           server << conf.tel_name[i]; server.printP(html_e_td_td);
-          server << conf.tel_num[i]; server.printP(html_e_td_td);        
+          server << conf.tel_num[i]; server.printP(html_e_td_td);
+          server << conf.email[i]; server.printP(html_e_td_td);
           (conf.tel[i] >> 5 & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
           if (conf.tel[i] & B1) {
             if (conf.tel[i] >> 5 & B1) { server.printP(text_all); }
@@ -1451,10 +1500,10 @@ void webSetPhone(WebServer &server, WebServer::ConnectionType type, char *url_ta
           server.printP(html_e_td_e_tr);
         }
         server.printP(html_e_table); 
-        server.printP(html_form_s); server << PREFIX "/phone"; server.printP(html_form_e);
+        server.printP(html_form_s); server << PREFIX "/c"; server.printP(html_form_e);
         
         server.printP(html_table_tr_td);
-        server.printP(text_Phone); server.printP(html_e_td_td);  
+        server.printP(text_Contact); server.printP(html_e_td_td);  
         server.printP(html_select_submit); server << "P"; server.printP(html_e_tag);
         for (uint8_t ii = 0; ii < NUM_OF_PHONES; ++ii) {
           server.printP(html_option); server << ii;
@@ -1464,7 +1513,7 @@ void webSetPhone(WebServer &server, WebServer::ConnectionType type, char *url_ta
         }
         server.printP(html_e_select);
         server.printP(html_e_td_e_tr); server.printP(html_tr_td);
-        server.printP(text_Phone); server.printP(text_space); server.printP(text_is); server.printP(html_e_td_td);
+        server.printP(text_Contact); server.printP(text_space); server.printP(text_is); server.printP(html_e_td_td);
         server.printP(html_radio_s);
         server.radioButton("o", text_1, text_On, conf.tel[webTel] & B1);
         server.radioButton("o", text_0, text_Off, !(conf.tel[webTel] & B1));
@@ -1474,10 +1523,14 @@ void webSetPhone(WebServer &server, WebServer::ConnectionType type, char *url_ta
       //if (webTel != 0) { server.printP(html_s_tag); server << "n"; server.printP(html_m_tag); server << conf.tel_name[webTel]; server.printP(html_e_tag); }
       //else             { server << conf.tel_name[webTel]; }
         server.printP(html_s_tag); server << "n"; server.printP(html_m_tag); server << conf.tel_name[webTel]; server.printP(html_e_tag);
+        server.printP(html_e_td_e_tr);
         server.printP(html_tr_td); server.printP(text_Phone); server.printP(text_space); server.printP(text_number); server.printP(html_e_td_td);
         server.printP(html_s_tag); server << "p"; server.printP(html_m_tag); server << conf.tel_num[webTel]; server.printP(html_e_tag);
         server.printP(html_e_td_e_tr);
-        server.printP(html_tr_td); server.printP(text_Global); server.printP(text_space); server.printP(text_phone); server.printP(html_e_td_td);
+        server.printP(html_tr_td); server.printP(text_Email); server.printP(html_e_td_td);
+        server.printP(html_s_tag); server << "m"; server.printP(html_m_tag); server << conf.email[webTel]; server.printP(html_e_tag);
+        server.printP(html_e_td_e_tr);
+        server.printP(html_tr_td); server.printP(text_Global); server.printP(text_space); server.printP(text_contact); server.printP(html_e_td_td);
         server.printP(html_radio_s);
         server.radioButton("a", text_1, text_Yes, conf.tel[webTel] >> 5 & B1);
         server.radioButton("a", text_0, text_No, !(conf.tel[webTel] >> 5 & B1));
@@ -1548,12 +1601,12 @@ void webSetAuth(WebServer &server, WebServer::ConnectionType type, char *url_tai
           case 'e': saveConf(); break; // save to EEPROM         
           }
         } while (repeat);
-        server.httpSeeOther(PREFIX "/auth");
+        server.httpSeeOther(PREFIX "/a");
       } else {
         server.httpSuccess();
-        webMenu(server, 7);
+        webMenu(server, menu_Auth);
         server.printP(html_h1); server.printP(text_Authentication); server.printP(text_space); server.printP(text_setup); server.printP(html_e_h1);  
-        server.printP(html_form_s); server << PREFIX "/auth"; server.printP(html_form_e);
+        server.printP(html_form_s); server << PREFIX "/a"; server.printP(html_form_e);
 
         server.printP(html_table_tr_th);
         server.printP(text_hash);
@@ -1672,12 +1725,12 @@ void webSetSens(WebServer &server, WebServer::ConnectionType type, char *url_tai
           case 'e': saveConf(); break; // save to EEPROM          
           }
         } while (repeat);
-      server.httpSeeOther(PREFIX "/sens");
+      server.httpSeeOther(PREFIX "/s");
     } else {
       server.httpSuccess();
-      webMenu(server, 8);
+      webMenu(server, menu_Sens);
       server.printP(html_h1); server.printP(text_Sensor); server.printP(text_space); server.printP(text_setup); server.printP(html_e_h1);  
-      server.printP(html_form_s); server << PREFIX "/sens"; server.printP(html_form_e);    
+      server.printP(html_form_s); server << PREFIX "/s"; server.printP(html_form_e);    
       server.printP(html_table_tr_th);
       server.printP(text_hash);
       server.printP(html_e_th_th); server.printP(text_Enabled);
@@ -1695,7 +1748,7 @@ void webSetSens(WebServer &server, WebServer::ConnectionType type, char *url_tai
         if (sensor[i].address < RADIO_UNIT_OFFSET) { server << "W:" << sensor[i].address; }
         else                                 { server << "R:" << sensor[i].address-RADIO_UNIT_OFFSET; }
         server.printP(text_semic); server << sensor[i].number; server.printP(html_e_td_td);
-        ((sensor[i].setting >> 7) & B1) ? server.printP(text_Yes) : server.printP(text_No); server.printP(html_e_td_td);
+        ((sensor[i].setting >> 7) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
         time_now = (nilTimeNow() - sensor[i].last_OK)/NIL_CFG_FREQUENCY; 
         server.print((char*)time_now.formatedUpTime()); server.printP(html_e_td_td);
         switch(sensor[i].type){
@@ -1784,10 +1837,10 @@ void webSetMQTT(WebServer &server, WebServer::ConnectionType type, char *url_tai
           case 'e': saveConf(); break; // save to EEPROM
         }
       } while (repeat);
-      server.httpSeeOther(PREFIX "/mqtt");
+      server.httpSeeOther(PREFIX "/m");
     } else {
       server.httpSuccess();
-      webMenu(server, 9);
+      webMenu(server, menu_MQTT);
       server.printP(html_h1); server.printP(text_MQTT); server.printP(text_space); server.printP(text_setup); server.printP(html_e_h1);  
       server.printP(html_table_tr_td);
 
@@ -1808,102 +1861,165 @@ void webSetMQTT(WebServer &server, WebServer::ConnectionType type, char *url_tai
   } else { server.httpUnauthorized(); }
 }
 
-void webSetGlobal(WebServer &server, WebServer::ConnectionType type, char *url_tail, bool tail_complete) {
+void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url_tail, bool tail_complete) {
   if (server.checkCredentials(conf.user_pass)) {
-    char name[2], value[17], _text[20];
+    char name[2], value[17];
     if (type == WebServer::POST) {
       bool repeat;
       //char name[2], value[17];
       do {
         repeat = server.readPOSTparam(name, 2, value, 17);
         switch(name[0]){
+          case 'e': saveConf(); break; // save to EEPROM
+        }
+      } while (repeat);
+      server.httpSeeOther(PREFIX "/m");
+    } else {
+      server.httpSuccess();
+      webMenu(server, menu_Sens);
+      server.printP(html_h1); server.printP(text_Triggers); server.printP(text_space); server.printP(text_setup); server.printP(html_e_h1);  
+      server.printP(html_form_s); server << PREFIX "/s"; server.printP(html_form_e);    
+      server.printP(html_table_tr_th);
+      server.printP(text_hash);
+      server.printP(html_e_th_th); server.printP(text_Enabled);
+      server.printP(html_e_th_th); server.printP(text_Address);
+      server.printP(html_e_th_th); server.printP(text_Type);
+      server.printP(html_e_th_th); server.printP(text_Symbol);
+      server.printP(html_e_th_th); server.printP(text_Value);
+      server.printP(html_e_th_th); server.printP(text_MQTT);
+      server.printP(html_e_th_th); server.printP(text_Alerting);
+      server.printP(html_e_th_th); server.printP(text_Triggered);
+      server.printP(html_e_th_th); server.printP(text_Pass);
+      server.printP(html_e_th_th); server.printP(text_Constant);
+      server.printP(html_e_th_e_tr);
+      for (uint8_t i = 0; i < TRIGGER_UNITS; ++i) {
+        server.printP(html_tr_td); 
+        server << i+1; server.printP(text_dot); server.printP(html_e_td_td);
+        (trigger[i].setting & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
+        if (trigger[i].address < RADIO_UNIT_OFFSET) { server << "W:" << trigger[i].address; }
+        else                                 { server << "R:" << trigger[i].address-RADIO_UNIT_OFFSET; }
+        server.printP(text_semic); server << trigger[i].number; server.printP(html_e_td_td);
+        switch(trigger[i].type){
+          case 'T': server.printP(text_Temperature); break;
+          case 'H': server.printP(text_Humidity); break;
+          case 'P': server.printP(text_Pressure); break;
+          default: server.printP(text_i_question); break;
+        }
+        server.printP(html_e_td_td);
+        server << trigger[i].symbol; server.printP(html_e_td_td);
+        dtostrf(trigger[i].value, 6, 2, value); server << value; server.printP(html_e_td_td);
+        ((trigger[i].setting >> 7) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
+        ((trigger[i].setting >> 6) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
+        ((trigger[i].setting >> 5) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
+        ((trigger[i].setting >> 1) & B1) ? server.printP(text_value) : server.printP(text_constant); server.printP(html_e_td_td);
+        dtostrf(trigger[i].constant, 6, 2, value); server << value; server.printP(html_e_td_e_tr);
+      }
+      server.printP(html_e_table); 
+      server.printP(html_table_tr_td);
+      server.printP(text_Sensor); server.printP(html_e_td_td);
+      server.printP(html_select_submit); server << "P"; server.printP(html_e_tag);
+      for (uint8_t ii = 0; ii < sensors; ++ii) {
+        server.printP(html_option); server << ii;
+        if (webSens == ii) { server.printP(html_selected); }
+        else               { server.printP(html_e_tag); }
+        server << ii + 1; server.printP(html_e_option);
+      }
+      server.printP(html_e_select); server.printP(html_e_td_e_tr);
+      server.printP(html_tr_td); server.printP(text_Address); server.printP(html_e_td_td);
+      if (sensor[webSens].address < RADIO_UNIT_OFFSET) { server << "W:" << sensor[webSens].address; }
+      else                                             { server << "R:" << sensor[webSens].address-RADIO_UNIT_OFFSET; }
+      server.printP(text_semic); server << sensor[webSens].number; server.printP(html_e_td_e_tr);
+      server.printP(html_tr_td); 
+      server.printP(text_Type); server.printP(html_e_td_td);
+      switch(sensor[webSens].type){
+        case 'T': server.printP(text_Temperature); break;
+        case 'H': server.printP(text_Humidity); break;
+        case 'P': server.printP(text_Pressure); break;
+        default: server.printP(text_undefined); break;
+      }
+      server.printP(html_e_td_e_tr);
+      server.printP(html_tr_td); server.printP(text_Sensor); server.printP(text_space); server.printP(text_is); server.printP(html_e_td_td);
+      server.printP(html_radio_s);
+      server.radioButton("o", text_1, text_On, sensor[webSens].setting & B1);
+      server.radioButton("o", text_0, text_Off, !(sensor[webSens].setting & B1));
+      server.printP(html_div_e); server.printP(html_e_td_e_tr); 
+      server.printP(html_tr_td); server.printP(text_MQTT); server.printP(text_space); server.printP(text_publish); server.printP(html_e_td_td);
+      server.printP(html_radio_s);
+      server.radioButton("p", text_1, text_On, (sensor[webSens].setting >> 7) & B1);
+      server.radioButton("p", text_0, text_Off, !((sensor[webSens].setting >> 7) & B1));
+      server.printP(html_div_e); server.printP(html_e_td_e_tr); 
+      server.printP(html_tr_td); server.printP(text_Group); server.printP(html_e_td_td);
+      server.printP(html_select); server << "g"; server.printP(html_e_tag);
+      for (uint8_t ii = 0; ii < ALR_GROUPS; ++ii) {
+        server.printP(html_option); server << ii;
+        if ((sensor[webSens].setting >> 1 & B1111) == ii) { server.printP(html_selected); }
+        else                                              { server.printP(html_e_tag); }
+        server << ii + 1; server.printP(text_spdashsp); server << conf.group_name[ii]; server.printP(text_spdashsp); (conf.group[ii] & B1) ? server.printP(text_On) : server.printP(text_Off); server.printP(html_e_option);
+      }
+      server.printP(html_e_select);
+      server.printP(html_e_td_e_tr);
+      server.printP(html_e_table);
+          
+      server.printP(html_F_A); // submit Apply
+      server.printP(html_F_SA); // submit Save all
+      server.printP(html_e_form);
+      server.printP(htmlFoot);
+    }
+  } else { server.httpUnauthorized(); }
+}
+
+
+void webSetGlobal(WebServer &server, WebServer::ConnectionType type, char *url_tail, bool tail_complete) {
+  if (server.checkCredentials(conf.user_pass)) {
+    char name[3], value[31];
+    if (type == WebServer::POST) {
+      bool repeat;
+      do {
+        repeat = server.readPOSTparam(name, 3, value, 31);
+        switch(name[0]){
           case 'a': conf.alr_time = strtol(value, NULL, 10); break;
           case 'b': conf.auto_arm = strtol(value, NULL, 10); break;
           case 'c': conf.open_alarm = strtol(value, NULL, 10);  break;
           case 'd': conf.arm_delay = strtol(value, NULL, 10) * 4;  break;
           case 'e': saveConf(); break; // save to EEPROM
-          case 'k': // key
-            strncpy ((char*)conf.radioKey, value, 16);
-            conf.radioKey[16] = 0; // extra byte for null
-          break;
-          case 'u': // user
-            strncpy (conf.user, value, 10);
-            conf.user[11] = 0;
-          break;
-            case 'p': // password
+          case 'k': strncpy ((char*)conf.radioKey, value, 16); // key
+                    conf.radioKey[16] = 0; // extra byte for null
+                    break;
+          case 'u': strncpy (conf.user, value, 10);// user
+                    conf.user[11] = 0;
+                    break;
+          case 'p': // password
             strncpy (conf.password, value, 10);
             conf.password[11] = 0;
-            _text[0] = 0;
-            strcat (_text, conf.user);
-            strcat (_text, ":");
-            strcat (_text, conf.password);
-            base64_encode(conf.user_pass, _text, strlen(_text));
+            b64_text[0] = 0;
+            strcat (b64_text, conf.user);
+            strcat (b64_text, ":");
+            strcat (b64_text, conf.password);
+            base64_encode(conf.user_pass, b64_text, strlen(b64_text));
             //WS.print("p>"); WS.println(_text);
             //WS.println(strlen(conf.user_pass));
             //WS.println(conf.user_pass);
           break;
-          case '0': // Radio button
-            if (value[0] == '0') conf.SMS &= ~(1 << 0);
-            else conf.SMS |= (1 << 0);
+          case 'i': // user
+            strncpy (conf.SMTP_user, value, 30);
+            conf.SMTP_user[31] = 0;
           break;
-          case '1': // Radio button
-            if (value[0] == '0') conf.SMS &= ~(1 << 1);
-            else conf.SMS |= (1 << 1);
+          case 'o': // password
+            strncpy (conf.SMTP_password, value, 15);
+            conf.SMTP_password[16] = 0;
           break;
-          case '2': // Radio button
-            if (value[0] == '0') conf.SMS &= ~(1 << 2);
-            else conf.SMS |= (1 << 2);
-          break;
-          /* Free Free Free Free 
-          case '3': // Radio button
-            if (value[0] == '0') conf.SMS &= ~(1 << 3);
-            else conf.SMS |= (1 << 4);
-          break;
-          */
-          case '4': // Radio button
-            if (value[0] == '0') conf.SMS &= ~(1 << 4);
-            else conf.SMS |= (1 << 4);
-          break;
-          case '5': // Radio button
-            if (value[0] == '0') conf.SMS &= ~(1 << 5);
-            else conf.SMS |= (1 << 5);
-          break;
-          case '6': // Radio button
-            if (value[0] == '0') conf.SMS &= ~(1 << 6);
-            else conf.SMS |= (1 << 6);
-          break;
-          case '7': // Radio button
-            if (value[0] == '0') conf.SMS &= ~(1 << 7);
-            else conf.SMS |= (1 << 7);
-          break;
-          case '8': // Radio button
-            if (value[0] == '0') conf.SMS &= ~(1 << 8);
-            else conf.SMS |= (1 << 8);
-          break;
-          case '9': // Radio button
-            if (value[0] == '0') conf.SMS &= ~(1 << 9);
-            else conf.SMS |= (1 << 9);
-          break;
-          case 'Q': // Radio button
-            if (value[0] == '0') conf.SMS &= ~(1 << 10);
-            else conf.SMS |= (1 << 10);
-          break;
-          case 'W': // Radio button
-            if (value[0] == '0') conf.SMS &= ~(1 << 11);
-            else conf.SMS |= (1 << 11);
-          break;
-          case 'E': // Radio button
-            if (value[0] == '0') conf.SMS &= ~(1 << 12);
-            else conf.SMS |= (1 << 12);
+          case '0' ... '2': // Handle all radio buttons in groups 0 .. 2, A .. P
+            if (value[0] == '0') conf.alerts[name[0]-48] &= ~(1 << (name[1]-65));
+            else conf.alerts[name[0]-48] |= (1 << (name[1]-65));
           break;
         }
       } while (repeat);
-      server.httpSeeOther(PREFIX "/set");
+      server.httpSeeOther(PREFIX "/r");
     } else {
       server.httpSuccess();
-      webMenu(server, 2);
+      webMenu(server, menu_Global);
       server.printP(html_h1); server.printP(text_Global); server.printP(text_space); server.printP(text_setup); server.printP(html_e_h1);  
-      server.printP(html_form_s); server << PREFIX "/set"; server.printP(html_form_e);    
+      server.printP(html_form_s); server << PREFIX "/r"; server.printP(html_form_e);    
       server.printP(html_table_tr_td);
       server.printP(text_User); server.printP(html_e_td_td);
       server.printP(html_s_tag); server << "u"; server.printP(html_m_tag); server << conf.user; server.printP(html_e_tag);
@@ -1911,6 +2027,14 @@ void webSetGlobal(WebServer &server, WebServer::ConnectionType type, char *url_t
       server.printP(html_tr_td);
       server.printP(text_Password); server.printP(html_e_td_td);
       server.printP(html_s_tag); server << "p"; server.printP(html_m_tag); server << conf.password; server.printP(html_e_tag);
+      server.printP(html_e_td_e_tr);
+      server.printP(html_tr_td);
+      server.printP(text_User); server.printP(html_e_td_td);
+      server.printP(html_s_tag); server << "i"; server.printP(html_m_tag); server << conf.SMTP_user; server.printP(html_e_tag);
+      server.printP(html_e_td_e_tr);
+      server.printP(html_tr_td);
+      server.printP(text_Password); server.printP(html_e_td_td);
+      server.printP(html_s_tag); server << "o"; server.printP(html_m_tag); server << conf.SMTP_password; server.printP(html_e_tag);
       server.printP(html_e_td_e_tr);
       server.printP(html_tr_td);
       server.printP(text_Authentication); server.printP(text_space); server.printP(text_time);server.printP(html_e_td_td);
@@ -1935,7 +2059,7 @@ void webSetGlobal(WebServer &server, WebServer::ConnectionType type, char *url_t
       server.printP(text_space); server.printP(text_seconds); server.printP(html_e_td_e_tr);
       server.printP(html_tr_td); server.printP(text_Auto); server.printP(text_space); server.printP(text_arm); server.printP(text_space); server.printP(text_delay); server.printP(html_e_td_td);
       server.printP(html_select); server << "b"; server.printP(html_e_tag);
-      for (uint8_t ii = 10; ii < 241; ii+=5) {
+      for (uint8_t ii = 10; ii < 241; ii+=10) {
         if ((conf.auto_arm) == ii) {
           server.printP(html_option); server << ii; server.printP(html_selected); 
           //if (ii>59) { server << "0" << ii/60 << ":" << ii%60;}
@@ -1980,69 +2104,144 @@ void webSetGlobal(WebServer &server, WebServer::ConnectionType type, char *url_t
       server.printP(html_s_tag); server << "k"; server.printP(html_m_tag); server << (char*)conf.radioKey; server.printP(html_e_tag);
       server.printP(html_e_table);
 
-      server.printP(html_h1); server.printP(text_SMS); server.printP(text_space); server.printP(text_alerting); server.printP(html_e_h1);  
-      server.printP(html_table_tr_td);
-      server.printP(text_Undefined); server.printP(text_space); server.printP(text_key);; server.printP(html_e_td_td);
+      server.printP(html_h1); server.printP(text_Alerting); server.printP(html_e_h1);  
+      server.printP(html_table_tr_th);
+      server.printP(text_Name); server.printP(html_e_th_th);
+      server.printP(text_SMS); server.printP(html_e_th_th);
+      server.printP(text_Email); server.printP(html_e_th_th);
+      server.printP(text_Last); server.printP(html_e_th_e_tr);
+      server.printP(html_tr_td);
+      server.printP(text_Undefined); server.printP(text_space); server.printP(text_key); server.printP(html_e_td_td);
       server.printP(html_radio_s);
-      server.radioButton("0", text_1, text_On, conf.SMS & B1);
-      server.radioButton("0", text_0, text_Off, !(conf.SMS & B1));
-      server.printP(html_e_td_e_tr);
+      server.radioButton("0A", text_1, text_On, conf.alerts[alert_SMS] & B1);
+      server.radioButton("0A", text_0, text_Off, !(conf.alerts[alert_SMS] & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("1A", text_1, text_On, conf.alerts[1] & B1);
+      server.radioButton("1A", text_0, text_Off, !(conf.alerts[1] & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("2A", text_1, text_On, conf.alerts[2] & B1);
+      server.radioButton("2A", text_0, text_Off, !(conf.alerts[2] & B1));
+      server.printP(html_div_e); server.printP(html_e_td_e_tr);
       server.printP(html_tr_td); server.printP(text_System); server.printP(text_space); server.printP(text_disarmed); server.printP(html_e_td_td);
       server.printP(html_radio_s);
-      server.radioButton("1", text_1, text_On, conf.SMS >> 1 & B1);
-      server.radioButton("1", text_0, text_Off, !(conf.SMS >> 1 & B1));
+      server.radioButton("0B", text_1, text_On, conf.alerts[alert_SMS] >> 1 & B1);
+      server.radioButton("0B", text_0, text_Off, !(conf.alerts[alert_SMS] >> 1 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("1B", text_1, text_On, conf.alerts[1] >> 1 & B1);
+      server.radioButton("1B", text_0, text_Off, !(conf.alerts[1] >> 1 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("2B", text_1, text_On, conf.alerts[2] >> 1 & B1);
+      server.radioButton("2B", text_0, text_Off, !(conf.alerts[2] >> 1 & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr);
       server.printP(html_tr_td); server.printP(text_System); server.printP(text_space); server.printP(text_armed); server.printP(html_e_td_td);
       server.printP(html_radio_s);
-      server.radioButton("2", text_1, text_On, conf.SMS >> 2 & B1);
-      server.radioButton("2", text_0, text_Off, !(conf.SMS >> 2 & B1));
+      server.radioButton("0C", text_1, text_On, conf.alerts[alert_SMS] >> 2 & B1);
+      server.radioButton("0C", text_0, text_Off, !(conf.alerts[alert_SMS] >> 2 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("1C", text_1, text_On, conf.alerts[1] >> 2 & B1);
+      server.radioButton("1C", text_0, text_Off, !(conf.alerts[1] >> 2 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("2C", text_1, text_On, conf.alerts[2] >> 2 & B1);
+      server.radioButton("2C", text_0, text_Off, !(conf.alerts[2] >> 2 & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr);
       server.printP(html_tr_td); server.printP(text_Open); server.printP(text_space); server.printP(text_alarm); server.printP(html_e_td_td);
       server.printP(html_radio_s);
-      server.radioButton("E", text_1, text_On, conf.SMS >> 12 & B1);
-      server.radioButton("E", text_0, text_Off, !(conf.SMS >> 12 & B1));
+      server.radioButton("0M", text_1, text_On, conf.alerts[alert_SMS] >> 12 & B1);
+      server.radioButton("0M", text_0, text_Off, !(conf.alerts[alert_SMS] >> 12 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("1M", text_1, text_On, conf.alerts[1] >> 12 & B1);
+      server.radioButton("1M", text_0, text_Off, !(conf.alerts[1] >> 12 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("2M", text_1, text_On, conf.alerts[2] >> 12 & B1);
+      server.radioButton("2M", text_0, text_Off, !(conf.alerts[2] >> 12 & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr);
-      /* Free Free Free Free  
-      */
       server.printP(html_tr_td); server.printP(text_Tamper); server.printP(text_space); server.printP(text_alarm); server.printP(html_e_td_td);
       server.printP(html_radio_s);
-      server.radioButton("4", text_1, text_On, conf.SMS >> 4 & B1);
-      server.radioButton("4", text_0, text_Off, !(conf.SMS >> 4 & B1));
+      server.radioButton("0E", text_1, text_On, conf.alerts[alert_SMS] >> 4 & B1);
+      server.radioButton("0E", text_0, text_Off, !(conf.alerts[alert_SMS] >> 4 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("1E", text_1, text_On, conf.alerts[1] >> 4 & B1);
+      server.radioButton("1E", text_0, text_Off, !(conf.alerts[1] >> 4 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("2E", text_1, text_On, conf.alerts[2] >> 4 & B1);
+      server.radioButton("2E", text_0, text_Off, !(conf.alerts[2] >> 4 & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr);
       server.printP(html_tr_td); server.printP(text_Sensor); server.printP(text_space); server.printP(text_alarm); server.printP(html_e_td_td);
       server.printP(html_radio_s);
-      server.radioButton("5", text_1, text_On, conf.SMS >> 5 & B1);
-      server.radioButton("5", text_0, text_Off, !(conf.SMS >> 5 & B1));
+      server.radioButton("0F", text_1, text_On, conf.alerts[alert_SMS] >> 5 & B1);
+      server.radioButton("0F", text_0, text_Off, !(conf.alerts[alert_SMS] >> 5 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("1F", text_1, text_On, conf.alerts[1] >> 5 & B1);
+      server.radioButton("1F", text_0, text_Off, !(conf.alerts[1] >> 5 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("2F", text_1, text_On, conf.alerts[2] >> 5 & B1);
+      server.radioButton("2F", text_0, text_Off, !(conf.alerts[2] >> 5 & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr);
       server.printP(html_tr_td); server.printP(text_System); server.printP(text_space); server.printP(text_alarm); server.printP(html_e_td_td);
       server.printP(html_radio_s);
-      server.radioButton("6", text_1, text_On, conf.SMS >> 6 & B1);
-      server.radioButton("6", text_0, text_Off, !(conf.SMS >> 6 & B1));
+      server.radioButton("0G", text_1, text_On, conf.alerts[alert_SMS] >> 6 & B1);
+      server.radioButton("0G", text_0, text_Off, !(conf.alerts[alert_SMS] >> 6 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("1G", text_1, text_On, conf.alerts[1] >> 6 & B1);
+      server.radioButton("1G", text_0, text_Off, !(conf.alerts[1] >> 6 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("2G", text_1, text_On, conf.alerts[2] >> 6 & B1);
+      server.radioButton("2G", text_0, text_Off, !(conf.alerts[2] >> 6 & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr);
       server.printP(html_tr_td); server.printP(text_Monitoring); server.printP(text_space); server.printP(text_started); server.printP(html_e_td_td);
       server.printP(html_radio_s);
-      server.radioButton("7", text_1, text_On, conf.SMS >> 7 & B1);
-      server.radioButton("7", text_0, text_Off, !(conf.SMS >> 7 & B1));
+      server.radioButton("0H", text_1, text_On, conf.alerts[alert_SMS] >> 7 & B1);
+      server.radioButton("0H", text_0, text_Off, !(conf.alerts[alert_SMS] >> 7 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("1H", text_1, text_On, conf.alerts[1] >> 7 & B1);
+      server.radioButton("1H", text_0, text_Off, !(conf.alerts[1] >> 7 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("2H", text_1, text_On, conf.alerts[2] >> 7 & B1);
+      server.radioButton("2H", text_0, text_Off, !(conf.alerts[2] >> 7 & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr);
       server.printP(html_tr_td); server.printP(text_System); server.printP(text_space); server.printP(text_group); server.printP(text_space); server.printP(text_armed); server.printP(html_e_td_td);
       server.printP(html_radio_s);
-      server.radioButton("8", text_1, text_On, conf.SMS >> 8 & B1);
-      server.radioButton("8", text_0, text_Off, !(conf.SMS >> 8 & B1));
+      server.radioButton("0I", text_1, text_On, conf.alerts[alert_SMS] >> 8 & B1);
+      server.radioButton("0I", text_0, text_Off, !(conf.alerts[alert_SMS] >> 8 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("1I", text_1, text_On, conf.alerts[1] >> 8 & B1);
+      server.radioButton("1I", text_0, text_Off, !(conf.alerts[1] >> 8 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("2I", text_1, text_On, conf.alerts[2] >> 8 & B1);
+      server.radioButton("2I", text_0, text_Off, !(conf.alerts[2] >> 8 & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr);
       server.printP(html_tr_td); server.printP(text_Configuration); server.printP(text_space); server.printP(text_saved); server.printP(html_e_td_td);
       server.printP(html_radio_s);
-      server.radioButton("9", text_1, text_On, conf.SMS >> 9 & B1);
-      server.radioButton("9", text_0, text_Off, !(conf.SMS >> 9 & B1));
+      server.radioButton("0J", text_1, text_On, conf.alerts[alert_SMS] >> 9 & B1);
+      server.radioButton("0J", text_0, text_Off, !(conf.alerts[alert_SMS] >> 9 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("1J", text_1, text_On, conf.alerts[1] >> 9 & B1);
+      server.radioButton("1J", text_0, text_Off, !(conf.alerts[1] >> 9 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("2J", text_1, text_On, conf.alerts[2] >> 9 & B1);
+      server.radioButton("2J", text_0, text_Off, !(conf.alerts[2] >> 9 & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr);
       server.printP(html_tr_td); server.printP(text_Power); server.printP(text_space); server.printP(text_state); server.printP(html_e_td_td);
       server.printP(html_radio_s);
-      server.radioButton("Q", text_1, text_On, conf.SMS >> 10 & B1);
-      server.radioButton("Q", text_0, text_Off, !(conf.SMS >> 10 & B1));
+      server.radioButton("0K", text_1, text_On, conf.alerts[alert_SMS] >> 10 & B1);
+      server.radioButton("0K", text_0, text_Off, !(conf.alerts[alert_SMS] >> 10 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("1K", text_1, text_On, conf.alerts[1] >> 10 & B1);
+      server.radioButton("1K", text_0, text_Off, !(conf.alerts[1] >> 10 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("2K", text_1, text_On, conf.alerts[2] >> 10 & B1);
+      server.radioButton("2K", text_0, text_Off, !(conf.alerts[2] >> 10 & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr);
       server.printP(html_tr_td); server.printP(text_Battery); server.printP(text_space); server.printP(text_state); server.printP(html_e_td_td);
       server.printP(html_radio_s);
-      server.radioButton("W", text_1, text_On, conf.SMS >> 11 & B1);
-      server.radioButton("W", text_0, text_Off, !(conf.SMS >> 11 & B1));
+      server.radioButton("0L", text_1, text_On, conf.alerts[alert_SMS] >> 11 & B1);
+      server.radioButton("0L", text_0, text_Off, !(conf.alerts[alert_SMS] >> 11 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("1L", text_1, text_On, conf.alerts[1] >> 11 & B1);
+      server.radioButton("1L", text_0, text_Off, !(conf.alerts[1] >> 11 & B1));
+      server.printP(html_div_e_e_td_td_radio_s);
+      server.radioButton("2L", text_1, text_On, conf.alerts[2] >> 11 & B1);
+      server.radioButton("2L", text_0, text_Off, !(conf.alerts[2] >> 11 & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr);
       server.printP(html_e_table);
       
@@ -2260,6 +2459,7 @@ NIL_THREAD(RS485RXThread, arg) {
   uint8_t _resp = 0; 
   uint8_t _group = 255;
   uint8_t _pos = 0;
+  uint8_t _unit;
 
   #if WEB_SERIAL_DEBUGGING 
   WS.println(F("RS485 receiver thread started"));
@@ -2282,12 +2482,21 @@ NIL_THREAD(RS485RXThread, arg) {
     
     // iButtons keys
     if (RX_msg.ctrl == FLAG_DTA && RX_msg.data_length == KEY_LEN && RX_msg.buffer[0]!='R') {  // incoming message looks like a key 
-      if (unit[RX_msg.address-1].setting & B1) { // unit is enabled for authorzation
+      _resp = 0;
+      // search unit with given address
+      for (_unit=0; _unit < units; _unit++) {
+        if (unit[_unit].address == RX_msg.address) {
+          _resp = 1;
+          break;
+        }
+      }
+      //  enabled for authorzation       address found
+      if ((unit[_unit].setting & B1) && (_resp))  { 
         for (uint8_t i=0; i < NUM_OF_KEYS; i++){
           _resp = memcmp(RX_msg.buffer, conf.key[i], KEY_LEN); // Compare key
           if (!_resp) { // key matched
             if (true) { // key enabled
-              _group = (unit[RX_msg.address-1].setting >> 1) & B1111;
+              _group = (unit[_unit].setting >> 1) & B1111;
               //     we have alarm                      group is armed
               if  (((group[_group].setting) >> 1 & B1) || ((group[_group].setting) & B1)) { 
                 if ((group[_group].setting) >> 1 & B1) { // we have alarm
@@ -2343,12 +2552,12 @@ NIL_THREAD(RS485RXThread, arg) {
         p->setting = (uint8_t)RX_msg.buffer[_pos+3];
         unit_fifo.signalData();   // Signal idle thread data is available.
         _pos+=4;
-        } while (_pos < RX_msg.data_length);
-      }
+      } while (_pos < RX_msg.data_length);
+    }
     // Sensors
-      if (RX_msg.ctrl == FLAG_DTA && RX_msg.buffer[0]=='S') {
-        _pos = 1;
-        do {
+    if (RX_msg.ctrl == FLAG_DTA && RX_msg.buffer[0]=='S') {
+      _pos = 1;
+      do {
         sensor_t *p = sensor_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
         if (p == 0) {
           _tmp[0] = 'F'; _tmp[1] = 'S'; _tmp[2] = 0; pushToLog(_tmp); // Sensor queue is full
@@ -2368,12 +2577,62 @@ NIL_THREAD(RS485RXThread, arg) {
   }
 }
 
+
+int readLine(char *line, int maxLen) {
+  systime_t start = nilTimeNow();
+  systime_t now = nilTimeNow(); 
+  int count = 0;
+  int cr    = 0;
+  int c     = -1;
+
+  WS.print("RL");
+  while (c == -1) {
+    WS.print(".");
+    nilThdSleepMilliseconds(25);
+    now = nilTimeNow();
+    if (now < start || now - start > 5000) { return 0; }
+    c = SMTPethClient.read();
+  }
+
+  while (true) {
+    WS.print((char)c);
+    if (count < maxLen)  { line[count++] = c; }
+    if (cr && c == '\n') { break; }
+    if (c == '\r') { cr = 1; }
+    else           { cr = 0; }
+    c = SMTPethClient.read();
+  }
+
+  if (count == maxLen - 1) { line[count - 1] = '\0'; }
+  else                     { line[count] = '\0';     }
+  return count;
+}
+
+
+int readStatus() {
+  char line[4];
+  int result;
+  while(true) {
+    result = readLine(line, 4);
+    if (result >= 4 && (line[3] != '-')) { break; }
+  }
+
+  if (result < 3) { return 0; }
+
+  char st[4];
+  strncpy(st, line, 3);
+  st[3] = '\0';
+  WS.print("rS:");WS.println(st); 
+  return atoi(st);
+}
+
 //------------------------------------------------------------------------------
 // Logger thread
 //
-NIL_WORKING_AREA(waLoggerThread, 128);
+NIL_WORKING_AREA(waLoggerThread, 256);
 NIL_THREAD(LoggerThread, arg) {
   uint8_t sms_send, sms_ok, _resp, _group;
+  int status;
   char    _text[10]; // MQTT out string
 
   // Initialize GSM modem
@@ -2399,48 +2658,51 @@ NIL_THREAD(LoggerThread, arg) {
     char* log_message = p->text; // Fetch and print data.
 
     // SMS handler
-    if (GSMisAlive) {
+    //if (GSMisAlive) {
       sms_send = 0; sms_text[0] = 0;
       _group = 255;
       // SMS body
       switch(log_message[13]){
         case 'S':
-        strcat_P(sms_text, (char*)text_System); strcat_P(sms_text, (char*)text_sesp);
-        switch(log_message[14]){
-            case 'B': // Battery
-            if (conf.SMS >> 11 & B1) sms_send = 1;
+          strcat_P(sms_text, (char*)text_System); strcat_P(sms_text, (char*)text_sesp);
+          switch(log_message[14]){
+          case 'B': // Battery
+            if (conf.alerts[alert_SMS] >> 11 & B1) sms_send = 1;
             strcat_P(sms_text, (char*)text_BR);
             if (log_message[15] == 'L') strcat_P(sms_text, (char*)text_low);
             else strcat_P(sms_text, (char*)text_high);
             strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_level);
             break;
-            case 'A': // AC
-            if (conf.SMS >> 10 & B1) sms_send = 1;
+          case 'A': // AC
+            if (conf.alerts[alert_SMS] >> 10 & B1) sms_send = 1;
             strcat_P(sms_text, (char*)text_PWS);
             if (log_message[15] == 'L') strcat_P(sms_text, (char*)text_On);
             else strcat_P(sms_text, (char*)text_Off);
             break;
-            case 'C': strcat_P(sms_text, (char*)text_Configuration); strcat_P(sms_text, (char*)text_space);
+          case 'C': strcat_P(sms_text, (char*)text_Configuration); strcat_P(sms_text, (char*)text_space);
             switch(tmp[15]){
-                case 'W': strcat_P(sms_text, (char*)text_saved); break; // conf. saved
-                case 'P': strcat_P(sms_text, (char*)text_saved); strcat_P(sms_text, (char*)text_cosp);
-                strcat_P(sms_text, (char*)text_monitoring); strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_disabled);
-                  break; // conf. saved
-                case 'L': strcat_P(sms_text, (char*)text_loaded); break; // conf. saved
-                case 'R': strcat_P(sms_text, (char*)text_reset); break; // conf. saved
-                default:  strcat_P(sms_text, (char*)text_undefined); break; // unknown  
-              }
-              if (conf.SMS >> 9 & B1) sms_send = 1; break; // conf. saved
-              break;
-              case 'Z': strcat_P(sms_text, (char*)text_Group); strcat_P(sms_text, (char*)text_space);
-              strcat(sms_text, conf.group_name[log_message[15]-48]); strcat_P(sms_text, (char*)text_space);
-                      strcat_P(sms_text, (char*)text_armed);  if (conf.SMS >> 8 & B1) sms_send = 1; break; // system armed
-            case 'S': strcat_P(sms_text, (char*)text_Monitoring); strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_started); if (conf.SMS >> 7 & B1) sms_send = 1; break; // monitoring strted
-            case 'X': strcat_P(sms_text, (char*)text_ALARM);  if (conf.SMS >> 6 & B1) sms_send = 1;
-                      strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_Group); strcat_P(sms_text, (char*)text_sesp);
-                      strcat(sms_text, conf.group_name[log_message[15]-48]); // extra text for SMS
-                      _group = log_message[15]-48;
-                      break; // alarm
+              case 'W': strcat_P(sms_text, (char*)text_saved); break; // conf. saved
+              case 'P': strcat_P(sms_text, (char*)text_saved); strcat_P(sms_text, (char*)text_cosp);
+                        strcat_P(sms_text, (char*)text_monitoring); strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_disabled);
+                        break; // conf. saved
+              case 'L': strcat_P(sms_text, (char*)text_loaded); break; // conf. saved
+              case 'R': strcat_P(sms_text, (char*)text_reset); break; // conf. saved
+              default:  strcat_P(sms_text, (char*)text_undefined); break; // unknown  
+            }
+            if (conf.alerts[alert_SMS] >> 9 & B1) sms_send = 1; // conf. saved
+            break;
+          case 'Z': strcat_P(sms_text, (char*)text_Group); strcat_P(sms_text, (char*)text_space);
+                    strcat(sms_text, conf.group_name[log_message[15]-48]); strcat_P(sms_text, (char*)text_space);
+                    strcat_P(sms_text, (char*)text_armed);
+                    if (conf.alerts[alert_SMS] >> 8 & B1) sms_send = 1;
+                    break; // system armed
+          case 'S': strcat_P(sms_text, (char*)text_Monitoring); strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_started); if (conf.alerts[alert_SMS] >> 7 & B1) sms_send = 1;
+                    break; // monitoring strted
+          case 'X': strcat_P(sms_text, (char*)text_ALARM);  if (conf.alerts[alert_SMS] >> 6 & B1) sms_send = 1;
+                    strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_Group); strcat_P(sms_text, (char*)text_sesp);
+                    strcat(sms_text, conf.group_name[log_message[15]-48]); // extra text for SMS
+                    _group = log_message[15]-48;
+                    break; // alarm
             /* ****************************** ADD
             case 's': server.printP(text_started); break;   // boot
             case 'M': 
@@ -2452,47 +2714,51 @@ NIL_THREAD(LoggerThread, arg) {
                 }
               break;
             */
-            default:  strcat_P(sms_text, (char*)text_undefined); // if (conf.SMS >> 9 & B1) sms_send = 1;
-              break; // unknown
+          default:  strcat_P(sms_text, (char*)text_undefined); 
+            // if (conf.alerts[alert_SMS] >> 9 & B1) sms_send = 1;
+            break; // unknown
           }
           break;
-          case 'P':
-          if (conf.SMS >> 5 & B1) sms_send = 1;
+        case 'P':
+          if (conf.alerts[alert_SMS] >> 5 & B1) sms_send = 1;
           strcat_P(sms_text, (char*)text_Alarm); strcat_P(sms_text, (char*)text_sesp); strcat_P(sms_text, (char*)text_triggered); strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_zone); strcat_P(sms_text, (char*)text_space);
           strcat(sms_text, conf.zone_name[log_message[14]-48]);
           _group = (conf.zone[log_message[14]-48] >> 1) & B1111;
           break;
-          case 'T':
-          if (conf.SMS >> 4 & B1) sms_send = 1;
+        case 'T':
+          if (conf.alerts[alert_SMS] >> 4 & B1) sms_send = 1;
           strcat_P(sms_text, (char*)text_Tamper); strcat_P(sms_text, (char*)text_sesp); strcat_P(sms_text, (char*)text_triggered); strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_zone); strcat_P(sms_text, (char*)text_space);
           strcat(sms_text, conf.zone_name[log_message[14]-48]);
           _group = (conf.zone[log_message[14]-48] >> 1) & B1111;
           break;
         case 'A': // Authentication
-        strcat_P(sms_text, (char*)text_Authentication); strcat_P(sms_text, (char*)text_sesp); 
-        if (log_message[14] < 'a') { strcat_P(sms_text, (char*)text_key); strcat_P(sms_text, (char*)text_space); }
-        if (log_message[14] == 'A' || log_message[14] == 'D' || log_message[14] == 'F') { strcat(sms_text, conf.key_name[log_message[15]-48]); strcat_P(sms_text, (char*)text_space); }  
-        switch(log_message[14]){
-          case 'D': strcat_P(sms_text, (char*)text_disarmed); if (conf.SMS >> 1 & B1) sms_send = 1; break;
-          case 'A': strcat_P(sms_text, (char*)text_armed); if (conf.SMS >> 2 & B1) sms_send = 1; break;
-          case 'U': strcat_P(sms_text, (char*)text_undefined); if (conf.SMS & B1) sms_send = 1; break;
-          case 'F': strcat_P(sms_text, (char*)text_is); strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_disabled); break;
-          case 'a': strcat_P(sms_text, (char*)text_auto); strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_armed);
-          strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_zone); strcat_P(sms_text, (char*)text_space); strcat(sms_text, conf.zone_name[log_message[15]-48]);
-          if (conf.SMS >> 2 & B1) sms_send = 1;
-                      _group = (conf.zone[log_message[15]-48] >> 1) & B1111; break; // Auto armed
-                      case 'o': strcat_P(sms_text, (char*)text_zone); strcat_P(sms_text, (char*)text_space); strcat(sms_text, conf.zone_name[log_message[15]-48]);
+          strcat_P(sms_text, (char*)text_Authentication); strcat_P(sms_text, (char*)text_sesp); 
+          if (log_message[14] < 'a') { strcat_P(sms_text, (char*)text_key); strcat_P(sms_text, (char*)text_space); }
+          if (log_message[14] == 'A' || log_message[14] == 'D' || log_message[14] == 'F') { strcat(sms_text, conf.key_name[log_message[15]-48]); strcat_P(sms_text, (char*)text_space); }  
+          switch(log_message[14]){
+            case 'D': strcat_P(sms_text, (char*)text_disarmed); if (conf.alerts[alert_SMS] >> 1 & B1) sms_send = 1; break;
+            case 'A': strcat_P(sms_text, (char*)text_armed); if (conf.alerts[alert_SMS] >> 2 & B1) sms_send = 1; break;
+            case 'U': strcat_P(sms_text, (char*)text_undefined); if (conf.alerts[alert_SMS] & B1) sms_send = 1; break;
+            case 'F': strcat_P(sms_text, (char*)text_is); strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_disabled); break;
+            case 'a': strcat_P(sms_text, (char*)text_auto); strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_armed);
+                      strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_zone); strcat_P(sms_text, (char*)text_space); strcat(sms_text, conf.zone_name[log_message[15]-48]);
+                      if (conf.alerts[alert_SMS] >> 2 & B1) sms_send = 1;
+                      _group = (conf.zone[log_message[15]-48] >> 1) & B1111;
+                      break; // Auto armed
+            case 'o': strcat_P(sms_text, (char*)text_zone); strcat_P(sms_text, (char*)text_space); strcat(sms_text, conf.zone_name[log_message[15]-48]);
                       strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_is); strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_open);
-                      if (conf.SMS >> 12 & B1) sms_send = 1;
-                      _group = (conf.zone[log_message[15]-48] >> 1) & B1111; break; // Open alarm              
-                      default: break;
-                    }
-                    break;
+                      if (conf.alerts[alert_SMS] >> 12 & B1) sms_send = 1;
+                      _group = (conf.zone[log_message[15]-48] >> 1) & B1111;
+                      break; // Open alarm              
+            default: break;
+          }
+          break;
         default: // do nothing
         break;
       }
       strcat_P(sms_text, (char*)text_dot);
 
+      /*
       if (sms_send) {
         for (uint8_t i = 0; i < NUM_OF_PHONES; ++i) {
           //  phone enabled           specific group     global tel.
@@ -2508,6 +2774,53 @@ NIL_THREAD(LoggerThread, arg) {
           }
         }
       }
+      */
+
+      if (sms_send) {
+        SMTPethClient.connect("mail.smtp2go.com", 2525);
+        status = readStatus();
+        SMTPethClient.println("EHLO");
+        status = readStatus();
+        SMTPethClient.println("auth login");
+        status = readStatus();
+        WS.println(conf.SMTP_user);
+        b64_text[0] = 0;
+        WS.print(base64_encode(b64_text, conf.SMTP_user, strlen(conf.SMTP_user)));
+        WS.println(b64_text);
+        SMTPethClient.println(b64_text);
+        status = readStatus();
+        WS.println(conf.SMTP_password);
+        b64_text[0] = 0;
+        WS.print(base64_encode(b64_text, conf.SMTP_password, strlen(conf.SMTP_password)));
+        WS.println(b64_text);
+        SMTPethClient.println(b64_text);
+        status = readStatus();
+        SMTPethClient.stop();
+        /*
+        SMTPethClient.print("MAIL FROM:");
+        SMTPethClient.println("<vysocan76@gmail.com>");
+        status = readStatus();
+        SMTPethClient.print("RCPT TO:");
+        SMTPethClient.println("<vysocan76@gmail.com>");
+        status = readStatus();
+        SMTPethClient.println("DATA ");
+        status = readStatus();
+        SMTPethClient.println();
+        SMTPethClient.println(".");
+        status = readStatus();
+        //mail.from("OHS <vysocan76@gmail.com>");
+        for (uint8_t i = 0; i < NUM_OF_PHONES; ++i) {
+          //  phone enabled           specific group     global tel.
+          if ((conf.tel[i] & B1) && ((_group != 255) || (conf.tel[i] >> 5 & B1))) { 
+            //mail.to(conf.email[i]);  
+          }
+        }
+        //mail.subject(sms_text);
+        //mail.body("I can send email from an Arduino!");
+        //WS.print(">");WS.println(SMTPclient.send(&mail)); 
+        SMTPethClient.stop();
+        */
+      }
 
       if (sms_send) {
         if (!sms_ok) log_message[12] = '.';
@@ -2516,8 +2829,8 @@ NIL_THREAD(LoggerThread, arg) {
         else         log_message[12] = ';';
       }
 
-    } // GSMisAlive
-    else log_message[12] = '|'; // modem not connected
+    //} // GSMisAlive
+    //else log_message[12] = '|'; // modem not connected
 
     // Put data into external EEPROM
     nilSemWait(&TWISem);          // wait for slot
@@ -2603,7 +2916,9 @@ NIL_THREAD(ServiceThread, arg) {
       do { 
         nilThdSleepMilliseconds(100);
       } while (p); // wait for logger thread
+      conf.power_loss = 1; // flag that we are out of power
       eeprom_update_block((const void*)&conf, (void*)0, sizeof(conf)); // Save current configuration
+      eeprom_update_block((const void*)&group, (void*)sizeof(conf), sizeof(group)); // Save current configuration
 
       nilSysLock(); // Lock RTOS  
 
@@ -2612,6 +2927,7 @@ NIL_THREAD(ServiceThread, arg) {
         delay(1000); // do nothing wait for power supply shutdown
       } 
 
+      conf.power_loss = 0; // un-flag that we are out of power
       nilSysUnlock(); // in case the power is restored we go on
       _tmp[0] = 'S'; _tmp[1] = 'A'; _tmp[2] = 'L'; _tmp[3] = 0; pushToLog(_tmp); // AC ON
       _tmp[0] = 'S'; _tmp[1] = 'B'; _tmp[2] = 'H'; _tmp[3] = 0; pushToLog(_tmp); // Battery High
@@ -2766,7 +3082,7 @@ NIL_THREAD(RadioThread, arg) {
 //
 NIL_WORKING_AREA(waSensorThread, 128);  
 NIL_THREAD(SensorThread, arg) {
-  uint8_t _unit, _found;
+  uint8_t _unit, _found, _trigger;
   char _value[7];
   char _text[40];
 
@@ -2781,8 +3097,9 @@ NIL_THREAD(SensorThread, arg) {
 
     _found = 0;
     for (_unit = 0; _unit < sensors; _unit++) {
-      if (sensor[_unit].address == p->address && sensor[_unit].type == p->type && sensor[_unit].number == p->number) {
-        _found = 1;
+      //  sensor enabled          
+      if (sensor[_unit].setting & B1) { 
+      if ((sensor[_unit].address == p->address) && (sensor[_unit].type == p->type) && (sensor[_unit].number == p->number)) { 
         sensor[_unit].value   = p->value;
         sensor[_unit].last_OK = p->last_OK;
         
@@ -2807,16 +3124,46 @@ NIL_THREAD(SensorThread, arg) {
           client.publish(_text,_value);
           nilSemSignal(&ETHSem);  // Exit region.
         }
-        nilSemWait(&ETHSem);    // wait for slot
         if (!client.connected()) {
           if (MQTTState) {
             _tmp[0] = 'S'; _tmp[1] = 'M'; _tmp[2] = 'F'; _tmp[3] = 0; pushToLog(_tmp);
             MQTTState = 0;
           }
         }    
-        nilSemSignal(&ETHSem);  // Exit region.
-        break; // no need to look for other
+
+        // Triggers
+        for (_trigger = 0; _trigger < triggers; _trigger++) {
+          //  trigger enabled
+          WS.print(">");WS.print(trigger[_trigger].address);
+          WS.print(">");WS.print(trigger[_trigger].type);
+          WS.print(">");WS.print(trigger[_trigger].number);
+          WS.print(">");WS.print(trigger[_trigger].setting, BIN);
+          WS.println();
+          if (trigger[_trigger].setting & B1) { 
+            if (trigger[_trigger].address == sensor[_unit].address && 
+                trigger[_trigger].type    == sensor[_unit].type &&
+                trigger[_trigger].number  == sensor[_unit].number) {
+              // check value
+              _found = 0;
+              switch(trigger[_trigger].type){
+                case '=': if (trigger[_trigger].value == sensor[_unit].value) _found = 1; break;
+                case '<': if (trigger[_trigger].value < sensor[_unit].value) _found = 1; break;
+                case '>': if (trigger[_trigger].value > sensor[_unit].value) _found = 1; break;
+                case '/': if (trigger[_trigger].value != sensor[_unit].value) _found = 1; break;
+                case 'A': _found = 1; break; break; // Always
+                default : break;
+              }
+              if (_found) {
+
+              }
+            
+            } // trigger match
+          } // trigger enabled
+        } // for (trigger)
+        _found = 1;
+        break; // no need to look for other unit
       } // if address 
+      } // enbled
     } // for
     if (!_found) {
       // call this address to register
@@ -2846,52 +3193,52 @@ NIL_THREAD(RegThread, arg) {
 
     switch(p->unit){
       case 'K': // Key
-      _resp = 1;
-      for (_unit=0; _unit < units; _unit++) {
-        if (unit[_unit].address == p->address && unit[_unit].type == p->type && unit[_unit].number == p->number) {
-          _resp = 0;
-          break;
+        _resp = 1;
+        for (_unit=0; _unit < units; _unit++) {
+          if (unit[_unit].address == p->address && unit[_unit].type == p->type && unit[_unit].number == p->number) {
+            _resp = 0;
+            break;
+          }
         }
-      }
         if (_resp) { // if unit not present already
+          unit[units].address = p->address;
+          unit[units].type    = p->type;
+          unit[units].number  = p->number;
+          unit[units].setting = p->setting;
+          _tmp[0] = 'U'; _tmp[1] = 'R'; _tmp[2] = 48 + unit[units].address; _tmp[3] = 0; pushToLog(_tmp);
+          // WS.print(F("Key reg: ")); WS.println(units); WS.print(unit[units].address); WS.print(unit[units].type);
+          // WS.println(unit[units].number); WS.println(unit[units].setting,BIN); 
           units++;
-          unit[units-1].address = p->address;
-          unit[units-1].type    = p->type;
-          unit[units-1].number  = p->number;
-          unit[units-1].setting = p->setting;
-          _tmp[0] = 'U'; _tmp[1] = 'R'; _tmp[2] = 48 + unit[units-1].address; _tmp[3] = 0; pushToLog(_tmp);
-          /* WS.print(F("Key reg: ")); WS.println(units); WS.print(unit[units-1].address); WS.print(unit[units-1].type);
-          WS.println(unit[units-1].number); WS.println(unit[units-1].setting,BIN); */
         } else {
           unit[_unit].address = p->address;
           unit[_unit].type    = p->type;
           unit[_unit].number  = p->number;
           unit[_unit].setting = p->setting;
           _tmp[0] = 'U'; _tmp[1] = 'r'; _tmp[2] = 48 + unit[_unit].address; _tmp[3] = 0; pushToLog(_tmp);
-          /* WS.print(F("Key rereg: ")); WS.println(_unit+1); WS.print(unit[_unit].address); WS.print(unit[_unit].type);
-          WS.println(unit[_unit].number); WS.println(unit[_unit].setting,BIN); */
+          // WS.print(F("Key rereg: ")); WS.println(_unit+1); WS.print(unit[_unit].address); WS.print(unit[_unit].type);
+          // WS.println(unit[_unit].number); WS.println(unit[_unit].setting,BIN); 
         }
         break;
       case 'S': // Sensor
-      _resp = 1;
-      for (_unit=0; _unit < sensors; _unit++) {
-        if (sensor[_unit].address == p->address && sensor[_unit].type == p->type && sensor[_unit].number == p->number) {
-          _resp = 0;
-          break;
+        _resp = 1;
+        for (_unit=0; _unit < sensors; _unit++) {
+          if (sensor[_unit].address == p->address && sensor[_unit].type == p->type && sensor[_unit].number == p->number) {
+            _resp = 0;
+            break;
+          }
         }
-      }
         if (_resp) { // if unit not present already
+          sensor[sensors].address = p->address;
+          sensor[sensors].type    = p->type;
+          sensor[sensors].number  = p->number;
+          sensor[sensors].setting = p->setting;
+          sensor[sensors].value   = 0;
+          sensor[sensors].last_OK = nilTimeNow();    // update current timestamp
+          _tmp[0] = sensor[sensors].type + 32; _tmp[1] = 'R'; _tmp[2] = 48 + sensor[sensors].address; _tmp[3] = 0; pushToLog(_tmp);
+          // WS.print(F("Sens reg: ")); WS.println(sensors); WS.print(sensor[sensors].address);
+          // WS.print(sensor[sensors].type); WS.println(sensor[sensors].number); WS.println(sensor[sensors].setting,BIN);
+          // WS.println(sensor[sensors].value); 
           sensors++;
-          sensor[sensors-1].address = p->address;
-          sensor[sensors-1].type    = p->type;
-          sensor[sensors-1].number  = p->number;
-          sensor[sensors-1].setting = p->setting;
-          sensor[sensors-1].value   = 0;
-          sensor[sensors-1].last_OK = nilTimeNow();    // update current timestamp
-          _tmp[0] = sensor[sensors-1].type + 32; _tmp[1] = 'R'; _tmp[2] = 48 + sensor[sensors-1].address; _tmp[3] = 0; pushToLog(_tmp);
-          /* WS.print(F("Sens reg: ")); WS.println(sensors); WS.print(sensor[sensors-1].address);
-          WS.print(sensor[sensors-1].type); WS.println(sensor[sensors-1].number); WS.println(sensor[sensors-1].setting,BIN);
-          WS.println(sensor[sensors-1].value); */
         } else {
           sensor[_unit].address = p->address;
           sensor[_unit].type    = p->type;
@@ -2900,9 +3247,10 @@ NIL_THREAD(RegThread, arg) {
           sensor[_unit].value   = 0;
           sensor[_unit].last_OK = nilTimeNow();    // update current timestamp
           _tmp[0] = sensor[_unit].type + 32; _tmp[1] = 'r'; _tmp[2] = 48 + sensor[_unit].address; _tmp[3] = 0; pushToLog(_tmp);
-          /* WS.print(F("Sens rereg: ")); WS.println(_unit+1); WS.print(sensor[_unit].address);
-          WS.print(sensor[_unit].type); WS.println(sensor[_unit].number);
-          WS.println(sensor[_unit].setting,BIN); WS.println(sensor[_unit].value); */
+          // WS.print(F("Sens rereg: ")); WS.println(_unit+1); WS.print(sensor[_unit].address);
+          // WS.print(sensor[_unit].type); WS.println(sensor[_unit].number);
+          // WS.println(sensor[_unit].setting,BIN); WS.println(sensor[_unit].value);
+
         }
         break;
         default: _tmp[0] = 'U'; _tmp[1] = 'E'; _tmp[2] = 0; pushToLog(_tmp); 
@@ -2952,7 +3300,11 @@ NIL_THREAD(Thread9, arg) {
     //WS.print(nilTimeNow());
     //nilPrintStackSizes(&WS);
     //nilPrintUnusedStack(&WS);
-    idlePointer++; if (idlePointer==idleSlots) idlePointer=0;
+    idlePointer++; if (idlePointer==idleSlots) { idlePointer=0;
+      //nilPrintUnusedStack(&WS);
+      //WS.print(strlen(conf.b64_SMTP_user)); WS.print(" "); WS.println(conf.b64_SMTP_user);
+      //WS.print(strlen(conf.b64_SMTP_password)); WS.print(" "); WS.println(conf.b64_SMTP_password);
+    }
     idleCount[idlePointer] = 0; // reset idle
   }
 }
@@ -2983,10 +3335,11 @@ NIL_THREAD(Thread9, arg) {
 
 //------------------------------------------------------------------------------
  void setup() {
-
+  
+  /*
   // On start set groups
   for (int8_t i=0; i < ALR_GROUPS ; i++){
-    group[i].setting       = 0;
+    group[i].setting   = 0;
     group[i].arm_delay = 0;
   }
   // On start set zones
@@ -2995,12 +3348,29 @@ NIL_THREAD(Thread9, arg) {
     zone[i].last_OK    = 0;
     zone[i].last_event = 'N';
   }
+  */
 
   // Read current configuration
   eeprom_read_block((void*)&conf, (void*)0, sizeof(conf)); 
-  if (conf.version != VERSION) setDefault();
+  if (conf.version != VERSION) { 
+    setDefault();
+    // encode default user pass 
+    char _text[20];
+    _text[0] = 0;
+    strcat (_text, conf.user);
+    strcat (_text, ":");
+    strcat (_text, conf.password);
+    base64_encode(conf.user_pass, _text, strlen(_text));
+  }
 
-  Serial.begin(9600); // GSM modem
+  // Read group setting if power was lost
+  if (conf.power_loss) {
+    eeprom_read_block((void*)&group, (void*)sizeof(conf), sizeof(group));
+    conf.power_loss = 0;
+  }
+
+  //Serial.begin(9600); // GSM modem
+  Serial.begin(115200); 
   #if WEB_SERIAL_DEBUGGING 
   WS.println(F("Start"));
   #endif
@@ -3008,7 +3378,7 @@ NIL_THREAD(Thread9, arg) {
   // RFM12B radio
   radio.Initialize(RADIO_NODEID, RADIO_FREQUENCY, RADIO_NETWORKID);
   radio.Encrypt(conf.radioKey); //comment this out to disable encryption
-  
+
   RS485.begin(19200, 0); // RS485 network, speed, our address  
 
   // ADC_PS_64 - 250kHz, ADC speed for 16MHz, faster readings less time for idle
@@ -3016,14 +3386,14 @@ NIL_THREAD(Thread9, arg) {
   //  - ADC_PS_64: (250 kHz on a 16 MHz CPU)
   //  - ADC_PS_32: (500 kHz on a 16 MHz CPU)
   nilAnalogPrescalar(ADC_PS_64); 
-  
+
   // TWI 
   Wire.begin(); Wire.speed(I2C_400KHZ);
 
   // Ethernet
   Ethernet.begin(mac, our_ip, gateway, gateway, subnet);
-  // UDP for NTP
-  // moved to function // udpInited = udp.begin(NTP_LOCAL_PORT); // open socket on arbitrary port
+  //WS.println(Ethernet.begin(mac));
+
   // MQTT connect
   if (client.connect(str_MQTT_dev)) {
     client.subscribe("OHS/In/#");;
@@ -3032,19 +3402,20 @@ NIL_THREAD(Thread9, arg) {
   // Web server
   webserver.begin();
   webserver.setDefaultCommand(&webHome);
-  webserver.addCommand("form", &webHome);
-  webserver.addCommand("log", &webListLog);
-  webserver.addCommand("zone", &webSetZone);
-  webserver.addCommand("group", &webSetGroup);
-  webserver.addCommand("set", &webSetGlobal);
-  webserver.addCommand("phone", &webSetPhone);
+  webserver.addCommand("h", &webHome);
+  webserver.addCommand("l", &webListLog);
+  webserver.addCommand("z", &webSetZone);
+  webserver.addCommand("g", &webSetGroup);
+  webserver.addCommand("r", &webSetGlobal);
+  webserver.addCommand("c", &webSetPhone);
   #if WEB_SERIAL_DEBUGGING 
-  webserver.addCommand("debug", &webDebug);
+  webserver.addCommand("d", &webDebug);
   #endif
-  webserver.addCommand("auth", &webSetAuth);
-  webserver.addCommand("sens", &webSetSens);
-  webserver.addCommand("key", &webSetKey);
-  webserver.addCommand("mqtt", &webSetMQTT);
+  webserver.addCommand("a", &webSetAuth);
+  webserver.addCommand("s", &webSetSens);
+  webserver.addCommand("k", &webSetKey);
+  webserver.addCommand("m", &webSetMQTT);
+  webserver.addCommand("t", &webSetTriggers);
 
   // start kernel
   nilSysBegin();
