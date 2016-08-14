@@ -420,13 +420,14 @@ size_t WebServer::write(uint8_t ch)
     m_client.write(m_buffer, sizeof(m_buffer));
     m_bufFill = 0;
   }
-
+  WS.print("S"); 
   return sizeof(ch);
 }
 
 size_t WebServer::write(const uint8_t *buffer, size_t size)
 {
   flushBuf(); //Flush any buffered output
+  WS.print("S");
   return m_client.write(buffer, size);
 }
 

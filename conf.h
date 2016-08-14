@@ -10,14 +10,17 @@
 #define ALR_GROUPS     16        // Groups
 
 // ADC Alarm settings refer to voltage divider and input voltage level
-// values set for resistors 10k Tamper, 20k PIR
-#define ALR_OK_LOW     -70
-#define ALR_OK         0
-#define ALR_OK_HI      70
-#define ALR_PIR_LOW    -270
-#define ALR_PIR        -200
-#define ALR_PIR_HI     -130
-
+// values set for resistors 1.1k Tamper, 1.1k PIR
+// PIR      0,9V - 1,5V     270 - 470  = 1k1
+// OK       1,8V - 2,6V     560 - 820  = 2k2
+// TAMPTER  ->0,9, 2,6->               = everything else
+#define ALR_PIR_LOW     270
+#define ALR_PIR         370
+#define ALR_PIR_HI      470
+#define ALR_OK_LOW    560
+#define ALR_OK        690
+#define ALR_OK_HI     820
+// EEPROM config version
 #define VERSION 100
 
 typedef enum {
@@ -149,11 +152,11 @@ void setDefault(){
   conf.zone[ 4] = B10000000 << 8 | B00011110; // Analog sensor 5
   conf.zone[ 5] = B10000000 << 8 | B00011110; // Analog sensor 6
   conf.zone[ 6] = B10000000 << 8 | B00011110; // Analog sensor 7
-  conf.zone[ 7] = B00000000 << 8 | B00011110; // Digital sensor 1
-  conf.zone[ 8] = B00000000 << 8 | B00011110; // Digital sensor 2
-  conf.zone[ 9] = B00000000 << 8 | B00011110; // Digital sensor 3
-  conf.zone[10] = B00000000 << 8 | B00011110; // Digital sensor 4
-  conf.zone[11] = B00000000 << 8 | B00011110; // Digital sensor 5
+  conf.zone[ 7] = B10000000 << 8 | B00011110; // Analog sensor 8
+  conf.zone[ 8] = B00000000 << 8 | B00011110; // Digital sensor 1
+  conf.zone[ 9] = B00000000 << 8 | B00011110; // Digital sensor 2
+  conf.zone[10] = B00000000 << 8 | B00011110; // Digital sensor 3
+  conf.zone[11] = B00000000 << 8 | B00011110; // Digital sensor 4
   conf.zone[12] = B00000000 << 8 | B00011110; // Tamper
 
 //                  |- Free
@@ -164,7 +167,7 @@ void setDefault(){
 //                  ||||||- Free
 //                  |||||||- Free
 //                  ||||||||- Free
-//                  ||||||||         |- Free
+//                  ||||||||         |- MQTT publish
 //                  ||||||||         ||- Free
 //                  ||||||||         |||- Free
 //                  ||||||||         ||||- PIR signal output 1 
@@ -236,6 +239,8 @@ void setDefault(){
   conf.mqtt_serv_ip[0] = 10; conf.mqtt_serv_ip[1] = 10; conf.mqtt_serv_ip[2] = 10; conf.mqtt_serv_ip[3] = 1;
   conf.user[0] = '#'; conf.user[1] = 0;
   conf.password[0] = '#'; conf.password[1] = 0;
+  conf.SMTP_user[0] = '#'; conf.SMTP_user[1] = 0;
+  conf.SMTP_password[0] = '#'; conf.SMTP_password[1] = 0;
   conf.power_loss = 0;
   conf.alerts[alert_SMS]   = 0x0000;
   conf.alerts[alert_email] = 0x0000;
