@@ -8,6 +8,7 @@ inline Print &operator <<(Print &obj, T arg)
 
 	
 P(text_System)         = "System";
+P(text_system)         = "system";
 P(text_battery)        = "battery";
 P(text_low)            = "low";
 P(text_PWS)            = "power was switched ";
@@ -42,13 +43,15 @@ P(text_alarm)          = "alarm";
 P(text_Last)           = "Last";
 P(text_zone)           = "zone";
 P(text_Tamper)         = "Tamper";
+P(text_tamper)         = "tamper";
 P(text_Damaged)        = "Damaged";
 P(text_Authentication) = "Authentication";
 P(text_trigger)        = "trigger";
 P(text_Trigger)        = "Trigger";
+P(text_timer)          = "timer";
+P(text_Timer)          = "Timer";
 P(text_ed)             = "ed";
 P(text_disarmed)       = "disarmed";
-P(text_tamper)         = "tamper";
 P(text_OK)             = "OK";
 P(text_not)            = "not";
 P(text_disabled)       = "disabled";
@@ -78,6 +81,7 @@ P(text_rr)     = "registered (roaming)";
 P(text_unk)    = "unknown";
 P(text_Zone)   = "Zone";
 P(text_Type)   = "Type";
+P(text_Function) = "Function";
 P(text_s)      = "s";
 P(text_Group)  = "Group";
 P(text_group)  = "group";
@@ -86,6 +90,8 @@ P(text_phone)  = "phone";
 P(text_Contact)= "Contact";
 P(text_contact)= "contact";
 P(text_Remote) = "Remote";
+P(text_node)   = "node";
+P(text_Node)   = "Node";
 P(text_unit)   = "unit";
 P(text_Unit)   = "Unit";
 P(text_Key)    = "Key";
@@ -101,6 +107,9 @@ P(text_Global) = "Global";
 P(text_setup)  = "setup";
 P(text_digital)= "digital";
 P(text_analog) = "analog";
+P(text_Float)  = "Float";
+P(text_Analog) = "Analog";
+P(text_Digital)= "Digital";
 P(text_auto)   = "auto";
 P(text_Auto)   = "Auto";
 P(text_To)     = "To";
@@ -116,13 +125,14 @@ P(text_is)     = "is";
 P(text_network)= "network";
 P(text_Signal)   = "Signal";
 P(text_strength) = "strength";
-P(text_seconds)= "seconds";
-P(text_minutes)= "minutes";
 P(text_Time)   = "Time";
 P(text_time)   = "time";
 P(text_Uptime) = "Uptime";
 P(text_Started) = "Started";
-P(text_sec)    = "s.";
+P(text_seconds)    = "second(s)";
+P(text_minutes)    = "minute(s)";
+P(text_hours)  = "hour(s)";
+P(text_days)   = "day(s)";
 P(text_space)  = " ";
 P(text_semic)  = ":";
 P(text_dot)    = ".";
@@ -139,6 +149,8 @@ P(text_Address)= "Address";
 P(text_address)= "address";
 P(text_registered) = "registered";
 P(text_registration) = "registration";
+P(text_Registration) = "Registration";
+P(text_queue) = "queue";
 P(text_error) = "error";
 P(text_re)     = "re";
 P(text_iButton)= "iButton";
@@ -154,6 +166,7 @@ P(text_value)       = "value";
 P(text_Constant)       = "Constant";
 P(text_constant)       = "constant";
 P(text_Pass)       = "Pass";
+P(text_once)       = "once";
 P(text_Symbol)       = "Symbol";
 P(text_degC)        = " °C";
 P(text_mBar)        = " mBar";
@@ -183,6 +196,25 @@ P(text_hash)   = "#";
 P(text_User)   = "User";
 P(text_Password)   = "Password";
 P(text_erased) = "erased";
+P(text_Period) = "Period";
+P(text_Calendar) = "Calendar";
+P(text_Run) = "Run";
+P(text_interval) = "interval";
+P(text_Mo) = "Mo";
+P(text_Tu) = "Tu";
+P(text_We) = "We";
+P(text_Th) = "Th";
+P(text_Fr) = "Fr";
+P(text_Sa) = "Sa";
+P(text_Su) = "Su";
+P(text_Monday) = "Monday";
+P(text_Tuesday) = "Tuesday";
+P(text_Wednesday) = "Wednesday";
+P(text_Thursday) = "Thursday";
+P(text_Friday) = "Friday";
+P(text_Saturday) = "Saturday";
+P(text_Sunday) = "Sunday";
+
 
 
 
@@ -233,6 +265,7 @@ P(html_br)     = "</br>";
 
 P(html_radio_s)  = "<div class='rm'>";
 P(html_radio_sl) = "<div class='rml'>";
+P(html_radio_sb) = "<div class='rmb'>";
 P(html_div_e)    = "</div>";
 
 P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open home security</title>"
@@ -244,9 +277,9 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 "html, body {height:100%}\n"
 "body {font: 14px/1 'Montserrat', sans-serif;color: #333;background: #333;overflow-x: hidden}\n"
 ".wrp {display:flex;min-height:100%}\n"
-".sbar {position:absolute;width:220px}\n"
-".content {flex:1;padding:10px 10px 1px 30px;;background:#eee;box-shadow:0 0 5px black;transform: translate3d(0,0,0);transition:transform .3s}\n"
-".content.isOpen {transform: translate3d(220px,0,0)}\n"
+".sbar {position:absolute;width:160px}\n"
+".content {flex:1;padding:10px 10px 1px 20px;;background:#eee;box-shadow:0 0 5px black;transform: translate3d(0,0,0);transition:transform .3s}\n"
+".content.isOpen {transform: translate3d(160px,0,0)}\n"
 ".title {font-size:22px;line-height:50px;text-align:center;color:#eee;border-bottom:1px solid #222;background:#2a2a2a}\n"
 ".nav li a {position:relative;display:block;padding:15px 15px 15px 50px;color:#eee;border-bottom:1px solid #222}\n"
 ".nav li a:before {font:14px fontawesome;position:absolute;top:14px;left:20px}\n"
@@ -256,9 +289,9 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 ".nav li:nth-child(4) a:before {content:'\\f24d'}"
 ".nav li:nth-child(5) a:before {content:'\\f084'}"
 ".nav li:nth-child(6) a:before {content:'\\f10b'}"
-".nav li:nth-child(7) a:before {content:'\\f023'}"
-".nav li:nth-child(8) a:before {content:'\\f1e0'}"
-".nav li:nth-child(9) a:before {content:'\\f064'}"
+".nav li:nth-child(7) a:before {content:'\\f1e0'}"
+".nav li:nth-child(8) a:before {content:'\\f064'}"
+".nav li:nth-child(9) a:before {content:'\\f017'}"
 ".nav li:nth-child(10) a:before {content:'\\f0e8'}"
 ".nav li:nth-child(11) a:before {content:'\\f15c'}"
 ".nav li:nth-child(12) a:before {content:'\\f085'}"
@@ -273,17 +306,17 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 "th {font-weight:600;background:#ddd}"
 "tr:nth-child(even) {background: #eee}"
 "a:link {text-decoration:none}\n"
-".rm, .rml {display:flex;height:25px;margin:0;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);overflow:hidden}\n"
+".rm, .rml, .rmb {display:flex;height:25px;margin:0;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);overflow:hidden}\n"
 ".rm {width:80px;}\n"
 ".rml {width:160px;}\n"
-
+".rmb {width:320px;}\n"
 ".rc {flex:1}\n"
 ".rc input {position:absolute;opacity:0}\n"
 ".rc label {display:block;height:25px;line-height:25px;text-align:center;cursor:pointer}\n"
 ".rc label:hover {background:#eee}\n"
 ".rc input:checked ~ label {color:#fff;background:#5b5}\n"
 "</style></head>\n<body>"
-"<div class='wrp'><div class='sbar'><div class='title'>O H S</div><ul class='nav'>";
+"<div class='wrp'><div class='sbar'><div class='title'>OHS v.1.7.1</div><ul class='nav'>";
 
 P(htmlHead_e) = "</ul></div><div class='content isOpen'>";
 
@@ -300,8 +333,8 @@ P(html_menu_Zones)    = "z'>Zones";
 P(html_menu_Groups)   = "g'>Groups";
 P(html_menu_Keys)     = "k'>Keys";
 P(html_menu_Contacts) = "c'>Contacts";
-P(html_menu_Auth)     = "a'>Authentication";
-P(html_menu_Sens)     = "s'>Sensors";
+P(html_menu_Timers)   = "i'>Timers";
+P(html_menu_Sens)     = "s'>Nodes";
 P(html_menu_Triggers) = "t'>Triggers";
 P(html_menu_MQTT)     = "m'>MQTT";
 P(html_menu_Log)      = "l'>Log";
