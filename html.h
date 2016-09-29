@@ -237,6 +237,7 @@ P(html_e_td_td)    = "</td><td>";
 P(html_td)      = "<td>";
 P(html_e_tr)    = "</tr>";
 P(html_e_td_e_tr)    = "</td></tr>";
+P(html_e_td_e_tr_tr_td)    = "</td></tr><tr><td>";
 P(html_tr)      = "<tr>";
 P(html_tr_td)      = "<tr><td>";
 P(html_e_th)    = "</th>";
@@ -268,14 +269,16 @@ P(html_radio_sl) = "<div class='rml'>";
 P(html_radio_sb) = "<div class='rmb'>";
 P(html_div_e)    = "</div>";
 
+// "@import url(\"http://fonts.googleapis.com/css?family=Montserrat:400,700\");\n"
+// "body {font: 14px/1 'Montserrat', sans-serif;color: #333;background: #333;overflow-x: hidden}\n"
+
 P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open home security</title>"
 "<style type=\"text/css\">\n"
-"@import url(\"http://fonts.googleapis.com/css?family=Montserrat:400,700\");\n"
 "@import url(\"http://netdna.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.css\");\n"
 "* {margin:0;padding:0}\n"
 "*, *:before, *:after {box-sizing:border-box}\n"
 "html, body {height:100%}\n"
-"body {font: 14px/1 'Montserrat', sans-serif;color: #333;background: #333;overflow-x: hidden}\n"
+"body {font: 12px/1 sans-serif;color: #333;background: #333;overflow-x: hidden}\n"
 ".wrp {display:flex;min-height:100%}\n"
 ".sbar {position:absolute;width:160px}\n"
 ".content {flex:1;padding:10px 10px 1px 20px;;background:#eee;box-shadow:0 0 5px black;transform: translate3d(0,0,0);transition:transform .3s}\n"
@@ -316,7 +319,7 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 ".rc label:hover {background:#eee}\n"
 ".rc input:checked ~ label {color:#fff;background:#5b5}\n"
 "</style></head>\n<body>"
-"<div class='wrp'><div class='sbar'><div class='title'>OHS v.1.7.1</div><ul class='nav'>";
+"<div class='wrp'><div class='sbar'><div class='title'>OHS v.1.7.2</div><ul class='nav'>";
 
 P(htmlHead_e) = "</ul></div><div class='content isOpen'>";
 

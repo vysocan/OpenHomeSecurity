@@ -65,68 +65,19 @@ void setDefault(){
   conf.version = VERSION;
   conf.alr_time = 10;
   conf.arm_delay = 80;
-  
-  conf.tel_num[0][0] = '-';conf.tel_num[0][1] = 0;
-  conf.tel_num[1][0] = '-';conf.tel_num[1][1] = 0;
-  conf.tel_num[2][0] = '-';conf.tel_num[2][1] = 0;
-  conf.tel_num[3][0] = '-';conf.tel_num[3][1] = 0;
-  conf.tel_num[4][0] = '-';conf.tel_num[4][1] = 0;
-  conf.tel_num[5][0] = '-';conf.tel_num[5][1] = 0;
-  conf.tel_num[6][0] = '-';conf.tel_num[6][1] = 0;
-  conf.tel_num[7][0] = '-';conf.tel_num[7][1] = 0;
-  conf.tel_name[0][0] = '-';conf.tel_name[0][1] = 0;
-  conf.tel_name[1][0] = '-';conf.tel_name[1][1] = 0;
-  conf.tel_name[2][0] = '-';conf.tel_name[2][1] = 0;
-  conf.tel_name[3][0] = '-';conf.tel_name[3][1] = 0;
-  conf.tel_name[4][0] = '-';conf.tel_name[4][1] = 0;
-  conf.tel_name[5][0] = '-';conf.tel_name[5][1] = 0;
-  conf.tel_name[6][0] = '-';conf.tel_name[6][1] = 0;
-  conf.tel_name[7][0] = '-';conf.tel_name[7][1] = 0;
-  conf.email[0][0] = '-';conf.email[0][1] = 0;
-  conf.email[1][0] = '-';conf.email[1][1] = 0;
-  conf.email[2][0] = '-';conf.email[2][1] = 0;
-  conf.email[3][0] = '-';conf.email[3][1] = 0;
-  conf.email[4][0] = '-';conf.email[4][1] = 0;
-  conf.email[5][0] = '-';conf.email[5][1] = 0;
-  conf.email[6][0] = '-';conf.email[6][1] = 0;
-  conf.email[7][0] = '-';conf.email[7][1] = 0;
-  conf.tel[0] = 0x1E;
-  conf.tel[1] = 0x1E;
-  conf.tel[2] = 0x1E;
-  conf.tel[3] = 0x1E;
-  conf.tel[4] = 0x1E;
-  conf.tel[5] = 0x1E;
-  conf.tel[6] = 0x1E;
-  conf.tel[7] = 0x1E;
-  conf.zone_name[ 0][0] = '-';conf.zone_name[0][1] = 0;
-  conf.zone_name[ 1][0] = '-';conf.zone_name[1][1] = 0;
-  conf.zone_name[ 2][0] = '-';conf.zone_name[2][1] = 0;
-  conf.zone_name[ 3][0] = '-';conf.zone_name[3][1] = 0;
-  conf.zone_name[ 4][0] = '-';conf.zone_name[4][1] = 0;
-  conf.zone_name[ 5][0] = '-';conf.zone_name[5][1] = 0;
-  conf.zone_name[ 6][0] = '-';conf.zone_name[6][1] = 0;
-  conf.zone_name[ 7][0] = '-';conf.zone_name[7][1] = 0;
-  conf.zone_name[ 8][0] = '-';conf.zone_name[8][1] = 0;
-  conf.zone_name[ 9][0] = '-';conf.zone_name[9][1] = 0;
-  conf.zone_name[10][0] = '-';conf.zone_name[10][1] = 0;
-  conf.zone_name[11][0] = '-';conf.zone_name[11][1] = 0;
-  conf.zone_name[12][0] = '-';conf.zone_name[12][1] = 0;
-  conf.key[0][0] = 0xFF;conf.key[0][1] = 0;
-  conf.key[1][0] = 0xFF;conf.key[1][1] = 0;
-  conf.key[2][0] = 0xFF;conf.key[2][1] = 0;
-  conf.key[3][0] = 0xFF;conf.key[3][1] = 0;
-  conf.key[4][0] = 0xFF;conf.key[4][1] = 0;
-  conf.key[5][0] = 0xFF;conf.key[5][1] = 0;
-  conf.key[6][0] = 0xFF;conf.key[6][1] = 0;
-  conf.key[7][0] = 0xFF;conf.key[7][1] = 0;
-  conf.key_name[0][0] = '-';conf.key_name[0][1] = 0;
-  conf.key_name[1][0] = '-';conf.key_name[1][1] = 0;
-  conf.key_name[2][0] = '-';conf.key_name[2][1] = 0;
-  conf.key_name[3][0] = '-';conf.key_name[3][1] = 0;
-  conf.key_name[4][0] = '-';conf.key_name[4][1] = 0;
-  conf.key_name[5][0] = '-';conf.key_name[5][1] = 0;
-  conf.key_name[6][0] = '-';conf.key_name[6][1] = 0;
-  conf.key_name[7][0] = '-';conf.key_name[7][1] = 0;
+  for(uint8_t i = 0; i < NUM_OF_PHONES; i++) {
+    conf.tel_num[i][0] = '-';conf.tel_num[i][1] = 0;
+    conf.tel_name[i][0] = '-';conf.tel_name[i][1] = 0;
+    conf.email[i][0] = '-';conf.email[i][1] = 0;
+    conf.tel[i] = 0x1E;
+  }
+  for(uint8_t i = 0; i < NUM_OF_KEYS; i++) {
+    conf.key[i][0] = 0xFF;conf.key[i][1] = 0;
+    conf.key_name[i][0] = '-';conf.key_name[i][1] = 0;
+  }
+  for(uint8_t i = 0; i < ALR_ZONES; i++) {
+    conf.zone_name[i][0] = '-';conf.zone_name[i][1] = 0;
+  }
 // Zones setup
 //                 |- Digital 0/ Analog 1
 //                 ||- Free
@@ -158,56 +109,27 @@ void setDefault(){
   conf.zone[10] = B00000000 << 8 | B00011110; // Digital sensor 3
   conf.zone[11] = B00000000 << 8 | B00011110; // Digital sensor 4
   conf.zone[12] = B00000000 << 8 | B00011110; // Tamper
-
-//                  |- Free
-//                  ||- Free
-//                  |||- Free
-//                  ||||- Free
-//                  |||||- Free
-//                  ||||||- Free
-//                  |||||||- Free
-//                  ||||||||- Free
-//                  ||||||||         |- MQTT publish
-//                  ||||||||         ||- Free
-//                  ||||||||         |||- Free
-//                  ||||||||         ||||- PIR signal output 1 
-//                  ||||||||         |||||- PIR signal output 2
-//                  ||||||||         ||||||-  Tamper signal output 1 
-//                  ||||||||         |||||||-  Tamper signal output 2
-//                  ||||||||         ||||||||-  Enabled 
-//                 B10000000         00000000
-  conf.group[ 0] = B00000000 << 8 | B00000000; 
-  conf.group[ 1] = B00000000 << 8 | B00000000; 
-  conf.group[ 2] = B00000000 << 8 | B00000000; 
-  conf.group[ 3] = B00000000 << 8 | B00000000; 
-  conf.group[ 4] = B00000000 << 8 | B00000000; 
-  conf.group[ 5] = B00000000 << 8 | B00000000; 
-  conf.group[ 6] = B00000000 << 8 | B00000000; 
-  conf.group[ 7] = B00000000 << 8 | B00000000; 
-  conf.group[ 8] = B00000000 << 8 | B00000000; 
-  conf.group[ 9] = B00000000 << 8 | B00000000; 
-  conf.group[10] = B00000000 << 8 | B00000000; 
-  conf.group[11] = B00000000 << 8 | B00000000; 
-  conf.group[12] = B00000000 << 8 | B00000000; 
-  conf.group[13] = B00000000 << 8 | B00000000; 
-  conf.group[14] = B00000000 << 8 | B00000000; 
-  conf.group[15] = B00000000 << 8 | B00000000; 
-  conf.group_name[ 0][0] = '-';conf.group_name[0][1] = 0;
-  conf.group_name[ 1][0] = '-';conf.group_name[1][1] = 0;
-  conf.group_name[ 2][0] = '-';conf.group_name[2][1] = 0;
-  conf.group_name[ 3][0] = '-';conf.group_name[3][1] = 0;
-  conf.group_name[ 4][0] = '-';conf.group_name[4][1] = 0;
-  conf.group_name[ 5][0] = '-';conf.group_name[5][1] = 0;
-  conf.group_name[ 6][0] = '-';conf.group_name[6][1] = 0;
-  conf.group_name[ 7][0] = '-';conf.group_name[7][1] = 0;
-  conf.group_name[ 8][0] = '-';conf.group_name[8][1] = 0;
-  conf.group_name[ 9][0] = '-';conf.group_name[9][1] = 0;
-  conf.group_name[10][0] = '-';conf.group_name[10][1] = 0;
-  conf.group_name[11][0] = '-';conf.group_name[11][1] = 0;
-  conf.group_name[12][0] = '-';conf.group_name[12][1] = 0;
-  conf.group_name[13][0] = '-';conf.group_name[13][1] = 0;
-  conf.group_name[14][0] = '-';conf.group_name[14][1] = 0;
-  conf.group_name[15][0] = '-';conf.group_name[15][1] = 0;
+  for(uint8_t i = 0; i < ALR_GROUPS; i++) {
+    conf.group_name[i][0] = '-';conf.group_name[i][1] = 0;
+  //                  |- Free
+  //                  ||- Free
+  //                  |||- Free
+  //                  ||||- Free
+  //                  |||||- Free
+  //                  ||||||- Free
+  //                  |||||||- Free
+  //                  ||||||||- Free
+  //                  ||||||||         |- MQTT publish
+  //                  ||||||||         ||- Free
+  //                  ||||||||         |||- Free
+  //                  ||||||||         ||||- PIR signal output 1 
+  //                  ||||||||         |||||- PIR signal output 2
+  //                  ||||||||         ||||||-  Tamper signal output 1 
+  //                  ||||||||         |||||||-  Tamper signal output 2
+  //                  ||||||||         ||||||||-  Enabled 
+  //                 B10000000         00000000
+    conf.group[ i] = B00000000 << 8 | B00000000; 
+  }
 
   conf.ee_pos = 0;
 
@@ -236,7 +158,7 @@ void setDefault(){
 // - to call .Encrypt(KEY) to start encrypting
 // - to stop encrypting call .Encrypt(NULL)
   conf.radioKey[0] = '-'; conf.radioKey[1] = 0;
-  conf.mqtt_serv_ip[0] = 10; conf.mqtt_serv_ip[1] = 10; conf.mqtt_serv_ip[2] = 10; conf.mqtt_serv_ip[3] = 1;
+  conf.mqtt_serv_ip[0] = 10; conf.mqtt_serv_ip[1] = 10; conf.mqtt_serv_ip[2] = 10; conf.mqtt_serv_ip[3] = 126;
   conf.user[0] = '#'; conf.user[1] = 0;
   conf.password[0] = '#'; conf.password[1] = 0;
   conf.SMTP_user[0] = '#'; conf.SMTP_user[1] = 0;
