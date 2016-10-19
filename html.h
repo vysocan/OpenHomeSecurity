@@ -128,7 +128,7 @@ P(text_strength) = "strength";
 P(text_Time)   = "Time";
 P(text_time)   = "time";
 P(text_Uptime) = "Uptime";
-P(text_Started) = "Started";
+P(text_Start) = "Start";
 P(text_seconds)    = "second(s)";
 P(text_minutes)    = "minute(s)";
 P(text_hours)  = "hour(s)";
@@ -184,6 +184,7 @@ P(text_Radio)  = "Radio";
 P(text_Received)  = "Received";
 P(text_packets)  = "packets";
 P(text_Not)  = "Not";
+P(text_as)  = "as";
 P(text_Failed)  = "Failed";
 P(text_acknowledged)  = "acknowledged";
 P(text_requested) = "requested";
@@ -278,7 +279,7 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 "* {margin:0;padding:0}\n"
 "*, *:before, *:after {box-sizing:border-box}\n"
 "html, body {height:100%}\n"
-"body {font: 12px/1 sans-serif;color: #333;background: #333;overflow-x: hidden}\n"
+"body {font: 12px/1 Georgia, sans-serif;color: #333;background: #333;overflow-x: hidden}\n"
 ".wrp {display:flex;min-height:100%}\n"
 ".sbar {position:absolute;width:160px}\n"
 ".content {flex:1;padding:10px 10px 1px 20px;;background:#eee;box-shadow:0 0 5px black;transform: translate3d(0,0,0);transition:transform .3s}\n"
@@ -319,7 +320,7 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 ".rc label:hover {background:#eee}\n"
 ".rc input:checked ~ label {color:#fff;background:#5b5}\n"
 "</style></head>\n<body>"
-"<div class='wrp'><div class='sbar'><div class='title'>OHS v.1.7.2</div><ul class='nav'>";
+"<div class='wrp'><div class='sbar'><div class='title'>OHS v.1.7.3</div><ul class='nav'>";
 
 P(htmlHead_e) = "</ul></div><div class='content isOpen'>";
 

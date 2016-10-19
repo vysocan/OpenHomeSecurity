@@ -1,27 +1,28 @@
 #ifndef defaults_h
 #define defaults_h
 
-#define ALR_ZONES      13        // Active zones
-#define NUM_OF_KEYS    8         // max number of keys
+#define ALR_ZONES      50        // Active zones
+#define NUM_OF_KEYS    20        // max number of keys
 #define KEY_LEN        8         // key 
-#define NUM_OF_PHONES  8         // max number of phones
+#define NUM_OF_PHONES  10        // max number of phones
 #define PHONE_LEN      16        // phone name 
 #define EMAIL_LEN      30        // email address
 #define ALR_GROUPS     16        // Groups
 
 // ADC Alarm settings refer to voltage divider and input voltage level
-// values set for resistors 1.1k Tamper, 1.1k PIR
-// PIR      0,9V - 1,5V     270 - 470  = 1k1
-// OK       1,8V - 2,6V     560 - 820  = 2k2
-// TAMPTER  ->0,9, 2,6->               = everything else
-#define ALR_PIR_LOW     270
-#define ALR_PIR         370
-#define ALR_PIR_HI      470
-#define ALR_OK_LOW    560
-#define ALR_OK        690
-#define ALR_OK_HI     820
+// values set for resistors 2k2 Tamper, 2k2 PIR
+// OK       0,9V - 1,5V     270 - 470  = 1k1
+// PIR      1,8V - 2,6V     560 - 820  = 2k2
+// TAMPER                              = everything else
+#define ALR_PIR_LOW   560
+#define ALR_PIR       690
+#define ALR_PIR_HI    820
+
+#define ALR_OK_LOW    270
+#define ALR_OK        370
+#define ALR_OK_HI     470
 // EEPROM config version
-#define VERSION 100
+#define VERSION 173
 
 typedef enum {
   alert_SMS = 0,
@@ -40,6 +41,7 @@ struct config_t {
   char     zone_name[ALR_ZONES][16];    
   char     key[NUM_OF_KEYS][KEY_LEN+1];
   char     key_name[NUM_OF_KEYS][16];
+  uint8_t  key_setting[NUM_OF_KEYS];
   char     tel_name[NUM_OF_PHONES][PHONE_LEN];
   uint16_t SMS; // **** NOT USED
   uint16_t group[ALR_GROUPS];
@@ -72,43 +74,49 @@ void setDefault(){
     conf.tel[i] = 0x1E;
   }
   for(uint8_t i = 0; i < NUM_OF_KEYS; i++) {
-    conf.key[i][0] = 0xFF;conf.key[i][1] = 0;
+    for(uint8_t ii = 0; ii < KEY_LEN; ii++) {
+      conf.key[i][ii] = 0xFF;
+    }
+    conf.key[i][KEY_LEN+1] = 0;
+    //                        group 16 and disabled
+    conf.key_setting[i] = B00011110;
     conf.key_name[i][0] = '-';conf.key_name[i][1] = 0;
   }
   for(uint8_t i = 0; i < ALR_ZONES; i++) {
     conf.zone_name[i][0] = '-';conf.zone_name[i][1] = 0;
+      // Zones setup
+      //                 |- Digital 0/ Analog 1
+      //                 ||- Present - connected
+      //                 |||- Free
+      //                 ||||- Free
+      //                 |||||- Free
+      //                 ||||||- Free
+      //                 |||||||- PIR as Tamper
+      //                 ||||||||- Still open alarm         
+      //                 ||||||||         |- Auto arm zone
+      //                 ||||||||         |||- Auth time
+      //                 ||||||||         |||- 0-3x the default time
+      //                 ||||||||         |||||||- Group number
+      //                 ||||||||         |||||||- 0 .. 15
+      //                 ||||||||         |||||||-  
+      //                 ||||||||         |||||||- 
+      //                 ||||||||         ||||||||-  Enabled   
+      //                B10000000         00000000
+    switch(i){
+      case  0 ...  7: 
+         conf.zone[i] = B11000000 << 8 | B00011110; // Analog sensor
+        break;
+      case  8 ... 11:
+         conf.zone[i] = B01000000 << 8 | B00011110; // Digital sensor 
+        break;
+      case  12      :
+         conf.zone[i] = B01000010 << 8 | B00011110; // Tamper
+        break;
+      default: 
+         conf.zone[i] = B00000000 << 8 | B00011110; // Other zones
+        break;
+    }
   }
-// Zones setup
-//                 |- Digital 0/ Analog 1
-//                 ||- Free
-//                 |||- Free
-//                 ||||- Free
-//                 |||||- Free
-//                 ||||||- Free
-//                 |||||||- Free
-//                 ||||||||- Still open alarm         
-//                 ||||||||         |- Auto arm zone
-//                 ||||||||         |||- Auth time
-//                 ||||||||         |||- 0-3x the default time
-//                 ||||||||         |||||||- Group number
-//                 ||||||||         |||||||- 0 .. 15
-//                 ||||||||         |||||||-  
-//                 ||||||||         |||||||- 
-//                 ||||||||         ||||||||-  Enabled   
-//                B10000000         00000000
-  conf.zone[ 0] = B10000000 << 8 | B00011110; // Analog sensor 1
-  conf.zone[ 1] = B10000000 << 8 | B00011110; // Analog sensor 2
-  conf.zone[ 2] = B10000000 << 8 | B00011110; // Analog sensor 3
-  conf.zone[ 3] = B10000000 << 8 | B00011110; // Analog sensor 4
-  conf.zone[ 4] = B10000000 << 8 | B00011110; // Analog sensor 5
-  conf.zone[ 5] = B10000000 << 8 | B00011110; // Analog sensor 6
-  conf.zone[ 6] = B10000000 << 8 | B00011110; // Analog sensor 7
-  conf.zone[ 7] = B10000000 << 8 | B00011110; // Analog sensor 8
-  conf.zone[ 8] = B00000000 << 8 | B00011110; // Digital sensor 1
-  conf.zone[ 9] = B00000000 << 8 | B00011110; // Digital sensor 2
-  conf.zone[10] = B00000000 << 8 | B00011110; // Digital sensor 3
-  conf.zone[11] = B00000000 << 8 | B00011110; // Digital sensor 4
-  conf.zone[12] = B00000000 << 8 | B00011110; // Tamper
   for(uint8_t i = 0; i < ALR_GROUPS; i++) {
     conf.group_name[i][0] = '-';conf.group_name[i][1] = 0;
   //                  |- Free
