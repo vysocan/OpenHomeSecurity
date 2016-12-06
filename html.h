@@ -11,7 +11,7 @@ P(text_System)         = "System";
 P(text_system)         = "system";
 P(text_battery)        = "battery";
 P(text_low)            = "low";
-P(text_PWS)            = "power was switched ";
+P(text_power)          = "power";
 P(text_Power)          = "Power";
 P(text_state)          = "state";
 P(text_On)             = "On";
@@ -36,6 +36,8 @@ P(text_ALARM)          = "ALARM !!!";
 P(text_Monitoring)     = "Monitoring";
 P(text_monitoring)     = "monitoring";
 P(text_started)        = "started";
+P(text_start)          = "start";
+P(text_end)            = "end";
 P(text_undefined)      = "undefined";
 P(text_Undefined)      = "Undefined";
 P(text_Alarm)          = "Alarm";
@@ -101,6 +103,8 @@ P(text_Name)   = "Name";
 P(text_Number) = "Number";
 P(text_number) = "number";
 P(text_Email)  = "Email";
+P(text_Page)   = "Page";
+P(text_for)    = "for";
 P(text_Status) = "Status";
 P(text_Log)    = "Log";
 P(text_Global) = "Global";
@@ -118,11 +122,12 @@ P(text_SMS)    = "SMS";
 P(text_Debug)  = "Debug";
 P(text_Delay)  = "Delay";
 P(text_delay)  = "delay";
-P(text_Alerting) = "Alerting";
+P(text_Alert) = "Alert";
 P(text_Logging) = "Logging";
 P(text_modem)  = "modem";
 P(text_is)     = "is";
 P(text_network)= "network";
+P(text_Network)= "Network";
 P(text_Signal)   = "Signal";
 P(text_strength) = "strength";
 P(text_Time)   = "Time";
@@ -147,10 +152,25 @@ P(text_Date)   = "Date";
 P(text_Message)= "Message";
 P(text_Address)= "Address";
 P(text_address)= "address";
+P(text_IP)= "IP";
+P(text_port)= "port";
+P(text_Gateway)= "Gateway";
+P(text_Mask)= "Mask";
+P(text_NTP)= "NTP";
+P(text_connection) = "connection";
+P(text_out)        = "out";
+P(text_lost)       = "lost";
+P(text_bad)        = "bad";
+P(text_protocol)   = "protocol";
+P(text_client_id)  = "client ID";
+P(text_unavailable)     = "unavailable";
+P(text_credentials) = "credentials";
+P(text_unauthorized)    = "unauthorized";
 P(text_registered) = "registered";
 P(text_registration) = "registration";
 P(text_Registration) = "Registration";
 P(text_queue) = "queue";
+P(text_Queue) = "Queue";
 P(text_error) = "error";
 P(text_re)     = "re";
 P(text_iButton)= "iButton";
@@ -180,6 +200,7 @@ P(text_failed)   = "failed";
 P(text_OHS)    = "OHS";
 P(text_slash)  = "/";
 P(text_publish) = "publish";
+P(text_subscribe) = "subscribe";
 P(text_Radio)  = "Radio";
 P(text_Received)  = "Received";
 P(text_packets)  = "packets";
@@ -196,6 +217,8 @@ P(text_connected) = "connected";
 P(text_hash)   = "#";
 P(text_User)   = "User";
 P(text_Password)   = "Password";
+P(text_user)   = "user";
+P(text_password)   = "password";
 P(text_erased) = "erased";
 P(text_Period) = "Period";
 P(text_Calendar) = "Calendar";
@@ -215,7 +238,11 @@ P(text_Thursday) = "Thursday";
 P(text_Friday) = "Friday";
 P(text_Saturday) = "Saturday";
 P(text_Sunday) = "Sunday";
-
+P(text_DS) = "Daylight saving";
+P(text_flag) = "flag";
+P(text_of) = "of";
+P(text_at) = "at";
+P(text_offset) = "offset";
 
 
 
@@ -225,8 +252,9 @@ P(html_F_LA)    = "<input type='submit' name='l' value='Load last'/>";
 P(html_F_A)     = "<input type='submit' name='A' value='Apply'/>";
 P(html_F_S)     = "<input type='submit' name='S' value='Select'/>";
 P(html_F_LOG)   = "<input type='submit' name='p' value='<<'/><input type='submit' name='n' value='now'/><input type='submit' name='f' value='>>'/>";
-P(html_F_Clear) = "<input type='submit' name='C' value='Clear log' onsubmit='return cL()'/>";
-P(html_F_CL)    = "<script>function cL() {alert('Erasing entire log, it takes few seconds.');return true;}</script>";  
+//P(html_F_Clear) = "<input type='submit' name='C' value='Clear log' onsubmit='return cL()'/>";
+P(html_F_Clear) = "<input type='submit' name='C' value='Clear log'/>";
+//P(html_F_CL)    = "<script>function cL() {alert('Erasing entire log, it takes few seconds.');return true;}</script>";  
 P(html_F_GetNTP)= "<input type='submit' name='T' value='Get NTP time'/>";
 P(html_F_RR)    = "<input type='submit' name='R' value='Reregister'/>";
 P(html_e_table) = "</table>";
@@ -257,6 +285,7 @@ P(html_select)  = "<select name='";
 P(html_select_submit)  = "<select onchange='this.form.submit()' name='";
 P(html_e_select)  = "</select>";
 P(html_s_tag)   = "<input type='text' name='";
+P(html_s_tag_s) = "<input type='text' maxlength='3' size='3' name='";
 P(html_m_tag)   = "' value='";
 P(html_e_tag)   = "'>";
 P(html_option)  = "<option value='";
@@ -306,7 +335,7 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 "h1 {margin: 0px 0 5px;font-size: 28px;padding: 10px}\n"
 "h2 {font-size: 18px;font-weight: 400;color: #999}\n"
 "table{margin:0 0 10px;border-collapse:collapse;border:1px solid #bbb;background-color:#fff}"
-"th, td {padding:10px;border-right:1px solid #bbb}"
+"th, td {padding:8px;border-right:1px solid #bbb}"
 "th {font-weight:600;background:#ddd}"
 "tr:nth-child(even) {background: #eee}"
 "a:link {text-decoration:none}\n"
@@ -320,7 +349,7 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 ".rc label:hover {background:#eee}\n"
 ".rc input:checked ~ label {color:#fff;background:#5b5}\n"
 "</style></head>\n<body>"
-"<div class='wrp'><div class='sbar'><div class='title'>OHS v.1.7.3</div><ul class='nav'>";
+"<div class='wrp'><div class='sbar'><div class='title'>OHS v.1.7.4</div><ul class='nav'>";
 
 P(htmlHead_e) = "</ul></div><div class='content isOpen'>";
 
@@ -340,7 +369,7 @@ P(html_menu_Contacts) = "c'>Contacts";
 P(html_menu_Timers)   = "i'>Timers";
 P(html_menu_Sens)     = "s'>Nodes";
 P(html_menu_Triggers) = "t'>Triggers";
-P(html_menu_MQTT)     = "m'>MQTT";
+P(html_menu_MQTT)     = "m'>Network";
 P(html_menu_Log)      = "l'>Log";
 P(html_menu_Debug)    = "d'>Debug";
 

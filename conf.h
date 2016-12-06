@@ -6,6 +6,8 @@
 #define KEY_LEN        8         // key 
 #define NUM_OF_PHONES  10        // max number of phones
 #define PHONE_LEN      16        // phone name 
+#define NAME_LEN       16        // Zone, Group, Trigger ... name 
+#define USER_LEN       11        // User, passwrod
 #define EMAIL_LEN      30        // email address
 #define ALR_GROUPS     16        // Groups
 
@@ -22,7 +24,7 @@
 #define ALR_OK        370
 #define ALR_OK_HI     470
 // EEPROM config version
-#define VERSION 173
+#define VERSION 174
 
 typedef enum {
   alert_SMS = 0,
@@ -38,29 +40,42 @@ struct config_t {
   uint16_t zone[ALR_ZONES];
   uint8_t  arm_delay;
   char     tel_num[NUM_OF_PHONES][PHONE_LEN];  
-  char     zone_name[ALR_ZONES][16];    
+  char     zone_name[ALR_ZONES][NAME_LEN];    
   char     key[NUM_OF_KEYS][KEY_LEN+1];
-  char     key_name[NUM_OF_KEYS][16];
+  char     key_name[NUM_OF_KEYS][NAME_LEN];
   uint8_t  key_setting[NUM_OF_KEYS];
   char     tel_name[NUM_OF_PHONES][PHONE_LEN];
-  uint16_t SMS; // **** NOT USED
   uint16_t group[ALR_GROUPS];
-  char     group_name[ALR_GROUPS][16];
+  char     group_name[ALR_GROUPS][NAME_LEN];
   uint8_t  tel[NUM_OF_PHONES];
   uint8_t  auto_arm;    // minutes
   uint8_t  open_alarm;  // minutes
   uint8_t  radioKey[17];
-  byte     mqtt_serv_ip[4];
-  char     user[11];
-  char     password[11];
-  char     user_pass[31];
+  IPAddress mqtt_ip;
+  uint16_t  mqtt_port;
+  IPAddress ip;
+  IPAddress gw;
+  IPAddress mask;
+  IPAddress ntp_ip;
+  uint8_t  mqtt; //MQTT setting
+  char     user[USER_LEN];
+  char     password[USER_LEN];
+  char     user_pass[EMAIL_LEN]; // b64 encoded for easy access
   char     email[NUM_OF_PHONES][EMAIL_LEN];
-  uint8_t  power_loss;
+  uint8_t  setting;
   uint16_t alerts[3]; // for alert configuration, SMS, email, page
-  char     SMTP_user[31];
-  char     SMTP_password[11];
-  //char     b64_SMTP_user[41];
-  //char     b64_SMTP_password[17];
+  char     SMTP_user[EMAIL_LEN]; // user name is full email address
+  char     SMTP_password[USER_LEN];
+  uint8_t  time_std_week;      //First, Second, Third, Fourth, or Last week of the month
+  uint8_t  time_std_dow;       //day of week, 1=Sun, 2=Mon, ... 7=Sat
+  uint8_t  time_std_month;     //1=Jan, 2=Feb, ... 12=Dec
+  uint8_t  time_std_hour;      //0-23
+  int16_t  time_std_offset;    //offset from UTC in minutes
+  uint8_t  time_dst_week;      //First, Second, Third, Fourth, or Last week of the month
+  uint8_t  time_dst_dow;       //day of week, 1=Sun, 2=Mon, ... 7=Sat
+  uint8_t  time_dst_month;     //1=Jan, 2=Feb, ... 12=Dec
+  uint8_t  time_dst_hour;      //0-23
+  int16_t  time_dst_offset;    //offset from UTC in minutes
 } conf;
 
 void setDefault(){
@@ -68,9 +83,9 @@ void setDefault(){
   conf.alr_time = 10;
   conf.arm_delay = 80;
   for(uint8_t i = 0; i < NUM_OF_PHONES; i++) {
-    conf.tel_num[i][0] = '-';conf.tel_num[i][1] = 0;
-    conf.tel_name[i][0] = '-';conf.tel_name[i][1] = 0;
-    conf.email[i][0] = '-';conf.email[i][1] = 0;
+    conf.tel_num[i][0] = '-'; conf.tel_num[i][1] = 0;
+    conf.tel_name[i][0] = '-'; conf.tel_name[i][1] = 0;
+    conf.email[i][0] = '-'; conf.email[i][1] = 0;
     conf.tel[i] = 0x1E;
   }
   for(uint8_t i = 0; i < NUM_OF_KEYS; i++) {
@@ -87,8 +102,8 @@ void setDefault(){
       // Zones setup
       //                 |- Digital 0/ Analog 1
       //                 ||- Present - connected
-      //                 |||- Free
-      //                 ||||- Free
+      //                 |||- TWI zone
+      //                 ||||- Wireless zone
       //                 |||||- Free
       //                 ||||||- Free
       //                 |||||||- PIR as Tamper
@@ -101,7 +116,7 @@ void setDefault(){
       //                 ||||||||         |||||||-  
       //                 ||||||||         |||||||- 
       //                 ||||||||         ||||||||-  Enabled   
-      //                B10000000         00000000
+      //                 54321098         76543210
     switch(i){
       case  0 ...  7: 
          conf.zone[i] = B11000000 << 8 | B00011110; // Analog sensor
@@ -135,46 +150,85 @@ void setDefault(){
   //                  ||||||||         ||||||-  Tamper signal output 1 
   //                  ||||||||         |||||||-  Tamper signal output 2
   //                  ||||||||         ||||||||-  Enabled 
-  //                 B10000000         00000000
+  //                  54321098         76543210
     conf.group[ i] = B00000000 << 8 | B00000000; 
   }
 
   conf.ee_pos = 0;
-
-// SMS settings 
-//            |- 
-//            ||- 
-//            |||- 
-// Keys       ||||- Open Alarm
-// System     |||||- Battery state
-// System     ||||||- AC state
-// System     |||||||- Configration saved
-// System     ||||||||- System group armed
-// System     ||||||||         
-// System     ||||||||         |- Monitoring started
-// System     ||||||||         ||- ALARM - No authentication
-// Alarm      ||||||||         |||- PIR
-// Alarm      ||||||||         ||||- TAMPER
-//            ||||||||         |||||- 
-// Keys       ||||||||         ||||||- Armed/Auto armed
-// Keys       ||||||||         |||||||- Disarmed
-// Keys       ||||||||         ||||||||- Undefined Key
-  conf.SMS = B00000000 << 8 | B00000000;
 //encryption is OPTIONAL
 //to enable encryption you will need to:
 // - provide a 16-byte encryption KEY (same on all nodes that talk encrypted)
 // - to call .Encrypt(KEY) to start encrypting
 // - to stop encrypting call .Encrypt(NULL)
   conf.radioKey[0] = '-'; conf.radioKey[1] = 0;
-  conf.mqtt_serv_ip[0] = 10; conf.mqtt_serv_ip[1] = 10; conf.mqtt_serv_ip[2] = 10; conf.mqtt_serv_ip[3] = 126;
+  conf.mqtt_ip[0] = 10; conf.mqtt_ip[1] = 10; conf.mqtt_ip[2] = 10; conf.mqtt_ip[3] = 126;
+  conf.mqtt_port = 1883;
+  conf.mqtt = 0;
+  conf.ip[0]      = 10;      conf.ip[1] = 10;      conf.ip[2] = 10;      conf.ip[3] = 200;
+  conf.gw[0]      = 10;      conf.gw[1] = 10;      conf.gw[2] = 10;      conf.gw[3] = 254;
+  conf.mask[0]    = 255;   conf.mask[1] = 255;   conf.mask[2] = 255;   conf.mask[3] = 0;
+  conf.ntp_ip[0]  = 195; conf.ntp_ip[1] = 113; conf.ntp_ip[2] = 144; conf.ntp_ip[3] = 201;
   conf.user[0] = '#'; conf.user[1] = 0;
   conf.password[0] = '#'; conf.password[1] = 0;
   conf.SMTP_user[0] = '#'; conf.SMTP_user[1] = 0;
   conf.SMTP_password[0] = '#'; conf.SMTP_password[1] = 0;
-  conf.power_loss = 0;
+  //       |- Free
+  //       ||- Free
+  //       |||- Free
+  //       ||||- Free
+  //       |||||- Free
+  //       ||||||- Free
+  //       |||||||- Daylight saving flag
+  //       ||||||||- Power lost
+  //      B00000000
+  conf.setting = 0;
+
+#define ALERT_TRIGGER             12
+#define ALERT_BATERY_STATE        11
+#define ALERT_AC_STATE            10    
+#define ALERT_CONF_SAVED          9
+#define ALERT_FIFO                8
+#define ALERT_MONITORING_STARTED  7
+#define ALERT_ALARM               6    
+#define ALERT_PIR                 5    
+#define ALERT_TAMPER              4    
+#define ALERT_OPEN                3
+#define ALERT_ARMED               2
+#define ALERT_DISARMED            1
+#define ALERT_FALSE_KEY           0  
+// Alert settings 
+//            |- 
+//            ||- 
+//            |||- 
+//            ||||- Trigger
+// System     |||||- Battery state
+// System     ||||||- AC state
+// System     |||||||- Configration saved
+//            ||||||||- Fifo
+// System     ||||||||         
+// System     ||||||||         |- Monitoring started
+// System     ||||||||         ||- ALARM - No authentication
+// Zone       ||||||||         |||- PIR
+// Zone       ||||||||         ||||- TAMPER
+// Zone       ||||||||         |||||- Open Alarm
+// Group      ||||||||         ||||||- Armed/Auto armed
+// Group      ||||||||         |||||||- Disarmed
+// Keys       ||||||||         ||||||||- Undefined Key
+//            54321098         76543210
   conf.alerts[alert_SMS]   = 0x0000;
   conf.alerts[alert_email] = 0x0000;
   conf.alerts[alert_page]  = 0x0000;
+
+  conf.time_std_week   = 0;      //First, Second, Third, Fourth, or Last week of the month
+  conf.time_std_dow    = 0;      //day of week, 0=Sun, 1=Mon, ... 6=Sat
+  conf.time_std_month  = 10;     //1=Jan, 2=Feb, ... 12=Dec
+  conf.time_std_hour   = 3;      //0-23
+  conf.time_std_offset = 60;     //offset from UTC in minutes
+  conf.time_dst_week   = 0;      //First, Second, Third, Fourth, or Last week of the month
+  conf.time_dst_dow    = 0;      //day of week, 0=Sun, 1=Mon, ... 6=Sat
+  conf.time_dst_month  = 3;      //1=Jan, 2=Feb, ... 12=Dec
+  conf.time_dst_hour   = 2;      //0-23
+  conf.time_dst_offset = 120;    //offset from UTC in minutes
  
 }  
 
