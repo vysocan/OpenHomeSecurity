@@ -202,6 +202,7 @@ struct node_t {
   uint16_t setting = B00011110;  // 2 bytes to store zone setting
   float    value   = 0;
   uint32_t last_OK = 0;
+//  uint16_t failed  = 0;
 //  int8_t      RSSI = -127;
 };
 #define NODES 40
@@ -567,7 +568,6 @@ DateTime GetNTPTime(UDP &udp){
   udp.flush();              // Clear received data from possible stray received packets
   
   // Send an NTP request 
-  //if (!(udp.beginPacket(timeIP, 123)      // 123 is the NTP port
   if (!(udp.beginPacket(conf.ntp_ip, 123)      // 123 is the NTP port
     && (udp.write((byte *)&ntpFirstFourBytes, NTP_PACKET_SIZE) == NTP_PACKET_SIZE)
     && udp.endPacket() )) {
@@ -998,11 +998,11 @@ NIL_THREAD(ZoneThread, arg) {
    
     //WS.print(F("Zone: "));
     for (int8_t i=0; i < ALR_ZONES ; i++){  
-      if (conf.zone[i] & B1){         // Zone enabled ?
+      if (conf.zone[i] & B1){           // Zone enabled ?
         //WS.print(i+1); WS.print(F(":"));
-        if (conf.zone[i] >> 15){       // Digital 0/ Analog 1 
+        if (conf.zone[i] >> 15){        // Digital 0/ Analog 1 
           nilSemWait(&ADCSem);          // Wait for slot
-          val  = nilAnalogRead(i);
+          val = nilAnalogRead(i);
           nilSemSignal(&ADCSem);        // Exit region.
         } else {
           switch(i) {
@@ -1014,6 +1014,8 @@ NIL_THREAD(ZoneThread, arg) {
             default: break;
           } 
         }
+        //    alarm as tamper              is PIR                                    make it tmaper
+        if (((conf.zone[i] >> 9) & B1) && (val >= ALR_PIR_LOW && val <= ALR_PIR_HI)) val += ALR_PIR;
         //WS.print(val); WS.print(F(", "));
         //WS.print(i); WS.print(F(","));
         _group = (conf.zone[i] >> 1) & B1111; // set group
@@ -1587,7 +1589,7 @@ NIL_WORKING_AREA(waAlertThread, 192);
 NIL_THREAD(AlertThread, arg) {
   uint8_t _group;
   int16_t _status;
-  uint8_t _text[10];
+  //uint8_t _text[10];
 
   nilThdSleepSeconds(1); // Sleep before start thread
 
@@ -1734,13 +1736,6 @@ NIL_THREAD(AlertThread, arg) {
           }
           _status = Serial.ATsendSMSEnd(sms_text, true);
           WS.print(F("SMS sent: ")); WS.println(_status);
-          if (_status != 1) {
-            nilSemSignal(&GSMSem);  // Exit region.
-            break; 
-          }
-          while (Serial.ATWaitMsg()) { // wait for GSM modem
-            nilThdSleepMilliseconds(200);
-          }
           nilSemSignal(&GSMSem);  // Exit region.
         }
       }
@@ -1796,42 +1791,26 @@ NIL_THREAD(AlertThread, arg) {
     }
     // Page number
     if ((alert_type >> alert_page) & B1) {
-      WS.print(F("page"));
+      WS.print(F("page "));
       for (uint8_t i = 0; i < NUM_OF_PHONES; ++i) {
         WS.print(i);
         //  phone enabled              specific group                       or global tel.
         if ((conf.tel[i] & B1) && ((((_group == conf.tel[i] >> 1) & B1111)) || (conf.tel[i] >> 5 & B1))) { 
-          WS.println(F("page"));
+          WS.println(F(" go "));
+          // Prepare ATD+ command
+          sms_text[0] = 0;
+          strcat(sms_text, AT_D); strcat(sms_text, conf.tel_num[i]); strcat_P(sms_text, (char*)text_semic);
           nilSemWait(&GSMSem);    // wait for slot
-          _status = Serial.ATsendCmdWR("ATD+420731435556;", _text); 
-          WS.print(F("Page begin: ")); WS.print((char*)_text); WS.println(_status);
+          _status = Serial.ATsendCmd(sms_text); 
+          WS.print(F("Page begin: ")); WS.println(_status);
           if (_status < 1) {
             nilSemSignal(&GSMSem);  // Exit region.
             break; 
           }
-          nilThdSleepSeconds(10);
-          _status = Serial.ATsendCmdWR("ATH", _text); 
-          WS.print(F("Page end: ")); WS.print((char*)_text); WS.println(_status);
-          if (_status < 1) {
-            nilSemSignal(&GSMSem);  // Exit region.
-            break; 
-          }
-          while (Serial.ATWaitMsg()) { // wait for GSM modem
-            nilThdSleepMilliseconds(200);
-          }
+          nilThdSleepSeconds(20); // RING ... RING ...
+          _status = Serial.ATsendCmd(AT_H); 
+          WS.print(F("Page end: "));  WS.println(_status);
           nilSemSignal(&GSMSem);  // Exit region.
-          /*
-          if (Serial.isMsg()) {
-          _resp = Serial.read((uint8_t*)sms_text);                     // read serial
-          #if WEB_SERIAL_DEBUGGING
-          WS.print(F(">GSM ")); WS.print(_resp); WS.print(':');
-          for(uint8_t i = 0; i < _resp; i++) {
-            WS.print((char)sms_text[i]);
-          }
-          WS.println();
-          #endif
-        }
-        */
         }
       }
     }
@@ -2203,8 +2182,8 @@ NIL_THREAD(SensorThread, arg) {
           node[_node].value   = p->value;
           node[_node].last_OK = timestamp.get();
           
-          //   MQTT connected           MQTT node enabled
-          if ((client.connected()) && ((node[_node].setting >> 7) & B1)) {
+          //   MQTT connected           MQTT node enabled                   MQTT publish
+          if ((client.connected()) && ((node[_node].setting >> 7) & B1) && (conf.mqtt & B1)) {
             _text[0] = 0;
             // Create MQTT string
             strcat_P(_text, (char*)text_OHS); strcat_P(_text, (char*)text_slash);
@@ -2362,7 +2341,7 @@ NIL_THREAD(DebugThread, arg) {
     idlePointer++;
     if (idlePointer==idleSlots) {
       idlePointer=0;
-      //nilPrintUnusedStack(&WS);
+      nilPrintUnusedStack(&WS);
       //nilPrintStackSizes(&WS);
     }
     idleCount[idlePointer] = 0; // reset idle

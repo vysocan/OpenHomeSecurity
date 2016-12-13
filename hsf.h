@@ -82,6 +82,19 @@ void select_group(WebServer &server, uint16_t setting) {
   server.printP(html_e_select);
 }
 
+void print_address_type(WebServer &server, uint8_t type){
+  if (type < RADIO_UNIT_OFFSET) { server << "W:" << type; }
+  else                          { server << "R:" << type-RADIO_UNIT_OFFSET; }
+  server.print(':');
+}
+
+void print_OnOffbutton(WebServer &server, char *name, uint8_t state) {
+  server.printP(html_radio_s);
+  server.radioButton2(name, 1, text_On, state);
+  server.radioButton2(name, 0, text_Off, !state);
+  server.printP(html_div_e);
+}
+
 typedef enum {
   menu_Home     = 1,
   menu_Global   = 2,
@@ -378,7 +391,7 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       server.printP(html_F_GetNTP);
       server.printP(html_F_LA); // submit Load all
       server.printP(html_F_SA); // submit Save all
-      server.printP(html_F_RD); // submit Save all
+      server.printP(html_F_RD); // submit Reset default
       server.printP(html_e_form);
       server.printP(htmlFoot);
     }
@@ -406,8 +419,7 @@ void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tai
       server.printP(html_form_s); server << PREFIX "/l"; server.printP(html_form_e);
       server.printP(html_F_Clear); // Clear
   
-      server.printP(html_table_tr_th); server.printP(text_hash);
-      server.printP(html_e_th_th); server.printP(text_Date); 
+      server.printP(html_table_tr_th_hash); server.printP(text_Date); 
       server.printP(html_e_th_th); server.printP(text_Message);
       server.printP(html_e_th_th); server.printP(text_Alert); server.print(' '); server.printP(text_requested); server.print(' '); server.printP(text_for);
       server.printP(html_e_th_e_tr);
@@ -637,8 +649,7 @@ void webSetZone(WebServer &server, WebServer::ConnectionType type, char *url_tai
         server.printP(html_h1); server.printP(text_Zone); server.print(' '); server.printP(text_setup); server.printP(html_e_h1); 
         server.printP(html_form_s); server << PREFIX "/z"; server.printP(html_form_e);
 
-        server.printP(html_table_tr_th); server.printP(text_hash);
-        server.printP(html_e_th_th); server.printP(text_Name); 
+        server.printP(html_table_tr_th_hash); server.printP(text_Name); 
         server.printP(html_e_th_th); server.printP(text_On);        
         server.printP(html_e_th_th); server.printP(text_Type);
         server.printP(html_e_th_th); server.printP(text_Auto); server.print(' '); server.printP(text_arm);
@@ -703,34 +714,34 @@ void webSetZone(WebServer &server, WebServer::ConnectionType type, char *url_tai
         server.printP(html_s_tag); server << 'n'; server.printP(html_m_tag); server << conf.zone_name[webZone]; server.printP(html_e_tag);
         server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Zone); server.print(' '); server.printP(text_is); server.printP(html_e_td_td);
-        server.printP(html_radio_s);
-        server.radioButton("0", text_1, text_On, conf.zone[webZone] & B1);
-        server.radioButton("0", text_0, text_Off, !(conf.zone[webZone] & B1));
-        server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+        //server.radioButton2("0", 1, text_On, conf.zone[webZone] & B1);
+        //server.radioButton2("0", 0, text_Off, !(conf.zone[webZone] & B1));
+        print_OnOffbutton(server, "0", conf.zone[webZone] & B1);
+        server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Type); server.printP(html_e_td_td);
         ((conf.zone[webZone] >> 15) & B1) ? server.printP(text_analog) : server.printP(text_digital); server.printP(html_e_td_e_tr_tr_td);        
         server.printP(text_Auto); server.print(' '); server.printP(text_arm); server.printP(html_e_td_td);
-        server.printP(html_radio_s);
-        server.radioButton("7", text_1, text_On, conf.zone[webZone] >> 7 & B1);
-        server.radioButton("7", text_0, text_Off, !(conf.zone[webZone] >> 7 & B1));
-        server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+        //server.radioButton2("7", 1, text_On, conf.zone[webZone] >> 7 & B1);
+        //server.radioButton2("7", 0, text_Off, !(conf.zone[webZone] >> 7 & B1));
+        print_OnOffbutton(server, "7", conf.zone[webZone] >> 7 & B1);
+        server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Open); server.print(' '); server.printP(text_alarm); server.printP(html_e_td_td);
-        server.printP(html_radio_s);
-        server.radioButton("8", text_1, text_On, conf.zone[webZone] >> 8 & B1);
-        server.radioButton("8", text_0, text_Off, !(conf.zone[webZone] >> 8 & B1));
-        server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+        //server.radioButton2("8", 1, text_On, conf.zone[webZone] >> 8 & B1);
+        //server.radioButton2("8", 0, text_Off, !(conf.zone[webZone] >> 8 & B1));
+        print_OnOffbutton(server, "8", conf.zone[webZone] >> 8 & B1);
+        server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Alarm); server.print(' '); server.printP(text_as); server.print(' '); server.printP(text_tamper); server.printP(html_e_td_td);
-        server.printP(html_radio_s);
-        server.radioButton("9", text_1, text_On, conf.zone[webZone] >> 9 & B1);
-        server.radioButton("9", text_0, text_Off, !(conf.zone[webZone] >> 9 & B1));
-        server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+        //server.radioButton2("9", 1, text_On, conf.zone[webZone] >> 9 & B1);
+        //server.radioButton2("9", 0, text_Off, !(conf.zone[webZone] >> 9 & B1));
+        print_OnOffbutton(server, "9", conf.zone[webZone] >> 9 & B1);
+        server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Authentication); server.print(' '); server.printP(text_delay); 
         server.printP(html_e_td_td);
         server.printP(html_radio_sl);
-        server.radioButton("d", text_0, text_0, !((conf.zone[webZone] >> 6 & B1) & (conf.zone[webZone] >> 5 & B1)));
-        server.radioButton("d", text_1, text_1, (!(conf.zone[webZone] >> 6 & B1) & (conf.zone[webZone] >> 5 & B1)));
-        server.radioButton("d", text_2, text_2, ((conf.zone[webZone] >> 6 & B1) & !(conf.zone[webZone] >> 5 & B1)));
-        server.radioButton("d", text_3, text_3, ((conf.zone[webZone] >> 6 & B1) & (conf.zone[webZone] >> 5 & B1)));
+        server.radioButton2("d", 0, text_0, !((conf.zone[webZone] >> 6 & B1) & (conf.zone[webZone] >> 5 & B1)));
+        server.radioButton2("d", 1, text_1, (!(conf.zone[webZone] >> 6 & B1) & (conf.zone[webZone] >> 5 & B1)));
+        server.radioButton2("d", 2, text_2, ((conf.zone[webZone] >> 6 & B1) & !(conf.zone[webZone] >> 5 & B1)));
+        server.radioButton2("d", 3, text_3, ((conf.zone[webZone] >> 6 & B1) & (conf.zone[webZone] >> 5 & B1)));
         server.printP(html_div_e); server.print(' '); server.printP(text_x); server << conf.alr_time; server.print(' '); server.printP(text_seconds); server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Group); server.printP(html_e_td_td);
         select_group(server, conf.zone[webZone]);
@@ -788,8 +799,7 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
       server.httpSuccess();
       webMenu(server, menu_Groups);
       server.printP(html_h1); server.printP(text_Group); server.print(' '); server.printP(text_setup); server.printP(html_e_h1);  
-      server.printP(html_table_tr_th); server.printP(text_hash);
-      server.printP(html_e_th_th); server.printP(text_Name); 
+      server.printP(html_table_tr_th_hash); server.printP(text_Name); 
       server.printP(html_e_th_th); server.printP(text_On);
       server.printP(html_e_th_th); server.printP(text_Armed);
       server.printP(html_e_th_th); server.printP(text_Authentication);
@@ -830,9 +840,10 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
               }
             }
             server << node[ii].type <<':';
-            if (node[ii].address < RADIO_UNIT_OFFSET) { server << "W:" << node[ii].address; }
-            else                                      { server << "R:" << node[ii].address-RADIO_UNIT_OFFSET; }
-            server.print(':'); server << node[ii].number; n = 1;
+            print_address_type(server, node[ii].address);
+            //if (node[ii].address < RADIO_UNIT_OFFSET) { server << "W:" << node[ii].address; }
+            //else                                      { server << "R:" << node[ii].address-RADIO_UNIT_OFFSET; }
+            server << node[ii].number; n = 1;
           }
         }
         server.printP(html_e_td_td);
@@ -847,10 +858,10 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
                 break;
               }
             }
-            if (node[ii].address < RADIO_UNIT_OFFSET) { server << "W:" << node[ii].address; }
-            else                                      { server << "R:" << node[ii].address-RADIO_UNIT_OFFSET; }
-            server << ':' << node[ii].number;
-            server << ':' << node[ii].type;
+            print_address_type(server, node[ii].address);
+            //if (node[ii].address < RADIO_UNIT_OFFSET) { server << "W:" << node[ii].address; }
+            //else                                      { server << "R:" << node[ii].address-RADIO_UNIT_OFFSET; }
+            server << node[ii].number; server.print(':'); server << node[ii].type;
             n = 1;
           }
         }
@@ -896,34 +907,30 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
       server.printP(html_s_tag); server << 'n'; server.printP(html_m_tag); server << conf.group_name[webGroup]; server.printP(html_e_tag);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Group); server.print(' '); server.printP(text_is); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0", text_1, text_On, conf.group[webGroup] & B1);
-      server.radioButton("0", text_0, text_Off, !(conf.group[webGroup] & B1));
-      server.printP(html_div_e);
+      //server.radioButton2("0", 1, text_On, conf.group[webGroup] & B1);
+      //server.radioButton2("0", 0, text_Off, !(conf.group[webGroup] & B1));
+      print_OnOffbutton(server, "0", conf.group[webGroup] & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Alarm); server.print(' '); server.printP(text_trigger); server << "s "; server.printP(text_OUT1); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("4", text_1, text_On, conf.group[webGroup] >> 4 & B1);
-      server.radioButton("4", text_0, text_Off, !(conf.group[webGroup] >> 4 & B1));
-      server.printP(html_div_e);
+      //server.radioButton2("4", 1, text_On, conf.group[webGroup] >> 4 & B1);
+      //server.radioButton2("4", 0, text_Off, !(conf.group[webGroup] >> 4 & B1));
+      print_OnOffbutton(server, "4", conf.group[webGroup] >> 4 & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Alarm); server.print(' '); server.printP(text_trigger); server << "s "; server.printP(text_OUT2); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("3", text_1, text_On, conf.group[webGroup] >> 3 & B1);
-      server.radioButton("3", text_0, text_Off, !(conf.group[webGroup] >> 3 & B1));
-      server.printP(html_div_e);
+      //server.radioButton2("3", 1, text_On, conf.group[webGroup] >> 3 & B1);
+      //server.radioButton2("3", 0, text_Off, !(conf.group[webGroup] >> 3 & B1));
+      print_OnOffbutton(server, "3", conf.group[webGroup] >> 3 & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Tamper); server.print(' '); server.printP(text_trigger); server << "s "; server.printP(text_OUT1); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("2", text_1, text_On, conf.group[webGroup] >> 2 & B1);
-      server.radioButton("2", text_0, text_Off, !(conf.group[webGroup] >> 2 & B1));
-      server.printP(html_div_e);
+      //server.radioButton2("2", 1, text_On, conf.group[webGroup] >> 2 & B1);
+      //server.radioButton2("2", 0, text_Off, !(conf.group[webGroup] >> 2 & B1));
+      print_OnOffbutton(server, "2", conf.group[webGroup] >> 2 & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Tamper); server.print(' '); server.printP(text_trigger); server << "s "; server.printP(text_OUT2); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("1", text_1, text_On, conf.group[webGroup] >> 1 & B1);
-      server.radioButton("1", text_0, text_Off, !(conf.group[webGroup] >> 1 & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr);
+      //server.radioButton2("1", 1, text_On, conf.group[webGroup] >> 1 & B1);
+      //server.radioButton2("1", 0, text_Off, !(conf.group[webGroup] >> 1 & B1));
+      print_OnOffbutton(server, "1", conf.group[webGroup] >> 1 & B1);
+      server.printP(html_e_td_e_tr);
       server.printP(html_e_table);
           
       server.printP(html_F_A); // submit Apply
@@ -989,8 +996,7 @@ void webSetKey(WebServer &server, WebServer::ConnectionType type, char *url_tail
       webMenu(server, menu_Keys);
       server.printP(html_h1); server.printP(text_Key); server.print(' '); server.printP(text_setup); server.printP(html_e_h1); 
 
-      server.printP(html_table_tr_th); server.printP(text_hash);
-      server.printP(html_e_th_th); server.printP(text_Name);
+      server.printP(html_table_tr_th_hash); server.printP(text_Name);
       server.printP(html_e_th_th); server.printP(text_On);
       server.printP(html_e_th_th); server.printP(text_Value);
       server.printP(html_e_th_th); server.printP(text_Global);
@@ -1027,20 +1033,18 @@ void webSetKey(WebServer &server, WebServer::ConnectionType type, char *url_tail
       server.printP(html_s_tag); server << 'n'; server.printP(html_m_tag); server << conf.key_name[webKey]; server.printP(html_e_tag);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Key); server.print(' '); server.printP(text_is); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0", text_1, text_On, conf.key_setting[webKey] & B1);
-      server.radioButton("0", text_0, text_Off, !(conf.key_setting[webKey] & B1));
-      server.printP(html_div_e);
+      //server.radioButton2("0", 1, text_On, conf.key_setting[webKey] & B1);
+      //server.radioButton2("0", 0, text_Off, !(conf.key_setting[webKey] & B1));
+      print_OnOffbutton(server, "0", conf.key_setting[webKey] & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Value); server.printP(html_e_td_td);
       formatKey(conf.key[webKey], value);    
       server.printP(html_s_tag); server << 'k'; server.printP(html_m_tag); server << value; server.printP(html_e_tag);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Global); server.print(' '); server.printP(text_key); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("5", text_1, text_Yes, conf.key_setting[webKey] >> 5 & B1);
-      server.radioButton("5", text_0, text_No, !(conf.key_setting[webKey] >> 5 & B1));
-      server.printP(html_div_e);
+      //server.radioButton2("5", 1, text_Yes, conf.key_setting[webKey] >> 5 & B1);
+      //server.radioButton2("5", 0, text_No, !(conf.key_setting[webKey] >> 5 & B1));
+      print_OnOffbutton(server, "5", conf.key_setting[webKey] >> 5 & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Last); server.print(' '); server.printP(text_key); server.printP(html_e_td_td);
       formatKey(last_key, value); server << value; server.printP(html_e_td_e_tr_tr_td);
@@ -1118,8 +1122,7 @@ void webSetPhone(WebServer &server, WebServer::ConnectionType type, char *url_ta
         webMenu(server, menu_Contacts);
         server.printP(html_h1); server.printP(text_Contact); server << "s "; server.printP(text_setup); server.printP(html_e_h1); 
 
-        server.printP(html_table_tr_th); server.printP(text_hash);
-        server.printP(html_e_th_th); server.printP(text_Name);
+        server.printP(html_table_tr_th_hash);server.printP(text_Name);
         server.printP(html_e_th_th); server.printP(text_On);
         server.printP(html_e_th_th); server.printP(text_Number);
         server.printP(html_e_th_th); server.printP(text_Email);
@@ -1158,10 +1161,9 @@ void webSetPhone(WebServer &server, WebServer::ConnectionType type, char *url_ta
         server.printP(html_s_tag); server << 'n'; server.printP(html_m_tag); server << conf.tel_name[webTel]; server.printP(html_e_tag);
         server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Contact); server.print(' '); server.printP(text_is); server.printP(html_e_td_td);
-        server.printP(html_radio_s);
-        server.radioButton("0", text_1, text_On, conf.tel[webTel] & B1);
-        server.radioButton("0", text_0, text_Off, !(conf.tel[webTel] & B1));
-        server.printP(html_div_e);
+        //server.radioButton2("0", 1, text_On, conf.tel[webTel] & B1);
+        //server.radioButton2("0", 0, text_Off, !(conf.tel[webTel] & B1));
+        print_OnOffbutton(server, "0", conf.tel[webTel] & B1);
         server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Phone); server.print(' '); server.printP(text_number); server.printP(html_e_td_td);
         server.printP(html_s_tag); server << 'p'; server.printP(html_m_tag); server << conf.tel_num[webTel]; server.printP(html_e_tag);
@@ -1170,10 +1172,9 @@ void webSetPhone(WebServer &server, WebServer::ConnectionType type, char *url_ta
         server.printP(html_s_tag); server << 'm'; server.printP(html_m_tag); server << conf.email[webTel]; server.printP(html_e_tag);
         server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Global); server.print(' '); server.printP(text_contact); server.printP(html_e_td_td);
-        server.printP(html_radio_s);
-        server.radioButton("5", text_1, text_Yes, conf.tel[webTel] >> 5 & B1);
-        server.radioButton("5", text_0, text_No, !(conf.tel[webTel] >> 5 & B1));
-        server.printP(html_div_e);
+        //server.radioButton2("5", 1, text_Yes, conf.tel[webTel] >> 5 & B1);
+        //server.radioButton2("5", 0, text_No, !(conf.tel[webTel] >> 5 & B1));
+        print_OnOffbutton(server, "5", conf.tel[webTel] >> 5 & B1);
         server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Group); server.printP(html_e_td_td);
         select_group(server, conf.tel[webTel]);
@@ -1270,8 +1271,7 @@ void webSetSens(WebServer &server, WebServer::ConnectionType type, char *url_tai
       webMenu(server, menu_Sens);
       server.printP(html_h1); server.printP(text_Node); server.print(' '); server.printP(text_setup); server.printP(html_e_h1);  
       server.printP(html_form_s); server << PREFIX "/s"; server.printP(html_form_e);    
-      server.printP(html_table_tr_th); server.printP(text_hash);
-      server.printP(html_e_th_th); server.printP(text_Address);
+      server.printP(html_table_tr_th_hash); server.printP(text_Address);
       server.printP(html_e_th_th); server.printP(text_On);
       server.printP(html_e_th_th); server.printP(text_MQTT);
       server.printP(html_e_th_th); server.printP(text_Last); server.print(' '); server.printP(text_Message);
@@ -1289,9 +1289,10 @@ void webSetSens(WebServer &server, WebServer::ConnectionType type, char *url_tai
             break;
           }
         }
-        if (node[i].address < RADIO_UNIT_OFFSET) { server << "W:" << node[i].address; }
-        else                                     { server << "R:" << node[i].address-RADIO_UNIT_OFFSET; }
-        server << ':' << node[i].number; server.printP(html_e_td_td);
+        print_address_type(server, node[i].address);
+        //if (node[i].address < RADIO_UNIT_OFFSET) { server << "W:" << node[i].address; }
+        //else                                     { server << "R:" << node[i].address-RADIO_UNIT_OFFSET; }
+        server << node[i].number; server.printP(html_e_td_td);
         (node[i].setting & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
         ((node[i].setting >> 7) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
         time_temp = timestamp.get() - node[i].last_OK; 
@@ -1348,14 +1349,15 @@ void webSetSens(WebServer &server, WebServer::ConnectionType type, char *url_tai
       server.printP(html_e_td_e_tr_tr_td);
       */
       server.printP(text_Address); server.printP(html_e_td_td);
-      if (node[webSens].address < RADIO_UNIT_OFFSET) { server << "W:" << node[webSens].address; }
-      else                                           { server << "R:" << node[webSens].address-RADIO_UNIT_OFFSET; }
-      server << ':' << node[webSens].number; server.printP(html_e_td_e_tr_tr_td);
+      print_address_type(server, node[webSens].address);
+      //if (node[webSens].address < RADIO_UNIT_OFFSET) { server << "W:" << node[webSens].address; }
+      //else                                           { server << "R:" << node[webSens].address-RADIO_UNIT_OFFSET; }
+      server << node[webSens].number; server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Node); server.print(' '); server.printP(text_is); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0", text_1, text_On, node[webSens].setting & B1);
-      server.radioButton("0", text_0, text_Off, !(node[webSens].setting & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
+      //server.radioButton2("0", 1, text_On, node[webSens].setting & B1);
+      //server.radioButton2("0", 0, text_Off, !(node[webSens].setting & B1));
+      print_OnOffbutton(server, "0", node[webSens].setting & B1);
+      server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Type); server.printP(html_e_td_td);
       switch(node[webSens].function){
           case 'K': server.printP(text_Authentication); break;
@@ -1380,10 +1382,10 @@ void webSetSens(WebServer &server, WebServer::ConnectionType type, char *url_tai
       */
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_MQTT); server.print(' '); server.printP(text_publish); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("7", text_1, text_On, (node[webSens].setting >> 7) & B1);
-      server.radioButton("7", text_0, text_Off, !((node[webSens].setting >> 7) & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
+      //server.radioButton2("7", 1, text_On, (node[webSens].setting >> 7) & B1);
+      //server.radioButton2("7", 0, text_Off, !((node[webSens].setting >> 7) & B1));
+      print_OnOffbutton(server, "7", (node[webSens].setting >> 7) & B1);
+      server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Group); server.printP(html_e_td_td);
       select_group(server, node[webSens].setting);
       /*
@@ -1507,20 +1509,20 @@ void webSetMQTT(WebServer &server, WebServer::ConnectionType type, char *url_tai
       }
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_MQTT); server.print(' '); server.printP(text_publish); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0", text_1, text_On, (conf.mqtt >> 0) & B1);
-      server.radioButton("0", text_0, text_Off, !((conf.mqtt >> 0) & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
+      //server.radioButton2("0", 1, text_On, (conf.mqtt >> 0) & B1);
+      //server.radioButton2("0", 0, text_Off, !((conf.mqtt >> 0) & B1));
+      print_OnOffbutton(server, "0", (conf.mqtt >> 0) & B1);
+      server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Sensor); server.print(' '); server.printP(text_MQTT); server.print(' '); server.printP(text_subscribe); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("1", text_1, text_On, (conf.mqtt >> 1) & B1);
-      server.radioButton("1", text_0, text_Off, !((conf.mqtt >> 1) & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+      //server.radioButton2("1", 1, text_On, (conf.mqtt >> 1) & B1);
+      //server.radioButton2("1", 0, text_Off, !((conf.mqtt >> 1) & B1));
+      print_OnOffbutton(server, "1", (conf.mqtt >> 1) & B1);
+      server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_SMS); server.print(' '); server.printP(text_MQTT); server.print(' '); server.printP(text_subscribe); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("2", text_1, text_On, (conf.mqtt >> 2) & B1);
-      server.radioButton("2", text_0, text_Off, !((conf.mqtt >> 2) & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+      //server.radioButton2("2", 1, text_On, (conf.mqtt >> 2) & B1);
+      //server.radioButton2("2", 0, text_Off, !((conf.mqtt >> 2) & B1));
+      print_OnOffbutton(server, "2", (conf.mqtt >> 2) & B1);
+      server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_MQTT); server.print(' '); server.printP(text_address); server.printP(html_e_td_td);
       server.printP(html_s_tag_s); server << 'z'; server.printP(html_m_tag); 
       server << conf.mqtt_ip[0]; server.printP(html_e_tag); server.print('.');
@@ -1630,8 +1632,7 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
       webMenu(server, menu_Triggers);
       server.printP(html_h1); server.printP(text_Trigger); server.print(' '); server.printP(text_setup); server.printP(html_e_h1);  
       server.printP(html_form_s); server << PREFIX "/t"; server.printP(html_form_e);    
-      server.printP(html_table_tr_th); server.printP(text_hash);
-      server.printP(html_e_th_th); server.printP(text_Name);
+      server.printP(html_table_tr_th_hash); server.printP(text_Name);
       server.printP(html_e_th_th); server.printP(text_On);
       server.printP(html_e_th_th); server.printP(text_Address);
       server.printP(html_e_th_th); server.printP(text_Symbol);
@@ -1656,9 +1657,10 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
           server.printP(text_Zone); server.printP(text_cosp); server << conf.zone_name[trigger[i].number];
           server.printP(text_spdashsp); server << trigger[i].number + 1;
         } else {
-          if (trigger[i].address < RADIO_UNIT_OFFSET) { server << "W:" << trigger[i].address; }
-          else                                        { server << "R:" << trigger[i].address-RADIO_UNIT_OFFSET; }
-          server.print(':'); server << trigger[i].number; server.print(':');
+          print_address_type(server, trigger[i].address);
+          //if (trigger[i].address < RADIO_UNIT_OFFSET) { server << "W:" << trigger[i].address; }
+          //else                                        { server << "R:" << trigger[i].address-RADIO_UNIT_OFFSET; }
+          server << trigger[i].number; server.print(':');
           print_node_type(server, trigger[i].type);
         }
         server.printP(html_e_td_td);
@@ -1677,9 +1679,10 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
         }
         server.printP(html_e_td_td);
         ((trigger[i].setting >> 1) & B1) ? server.printP(text_value) : server.printP(text_constant); server.printP(html_e_td_td);
-        if (trigger[i].to_address < RADIO_UNIT_OFFSET) { server << "W:" << trigger[i].to_address; }
-        else                                           { server << "R:" << trigger[i].to_address-RADIO_UNIT_OFFSET; }
-        server.print(':'); server << trigger[i].to_number; server.print(':');
+        print_address_type(server, trigger[i].to_address);
+        //if (trigger[i].to_address < RADIO_UNIT_OFFSET) { server << "W:" << trigger[i].to_address; }
+        //else                                           { server << "R:" << trigger[i].to_address-RADIO_UNIT_OFFSET; }
+        server << trigger[i].to_number; server.print(':');
         switch(trigger[i].to_type){
           case 'D': server.printP(text_Digital); break;
           case 'A': server.printP(text_Analog); break;
@@ -1706,10 +1709,10 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
       server.printP(html_s_tag); server << 'n'; server.printP(html_m_tag); server << trigger[webTrig].name; server.printP(html_e_tag);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Trigger); server.print(' '); server.printP(text_is); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0", text_1, text_On, trigger[webTrig].setting & B1);
-      server.radioButton("0", text_0, text_Off, !(trigger[webTrig].setting & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
+      //server.radioButton2("0", 1, text_On, trigger[webTrig].setting & B1);
+      //server.radioButton2("0", 0, text_Off, !(trigger[webTrig].setting & B1));
+      print_OnOffbutton(server, "0", trigger[webTrig].setting & B1);
+      server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Address); server.printP(html_e_td_td);
       server.printP(html_select); server << 'a'; server.printP(html_e_tag);
       for (uint8_t ii = 0; ii < ALR_ZONES; ++ii) {
@@ -1732,9 +1735,10 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
               node[ii-ALR_ZONES].number  == trigger[webTrig].number &&
               node[ii-ALR_ZONES].type    == trigger[webTrig].type) { server.printP(html_selected); }
           else                                             { server.printP(html_e_tag); }
-          if (node[ii-ALR_ZONES].address < RADIO_UNIT_OFFSET) { server << "W:" << node[ii-ALR_ZONES].address; }
-          else                                                  { server << "R:" << node[ii-ALR_ZONES].address-RADIO_UNIT_OFFSET; }
-          server.print(':'); server << node[ii-ALR_ZONES].number; server.print(':');
+          print_address_type(server, node[ii-ALR_ZONES].address);
+          //if (node[ii-ALR_ZONES].address < RADIO_UNIT_OFFSET) { server << "W:" << node[ii-ALR_ZONES].address; }
+          //else                                                  { server << "R:" << node[ii-ALR_ZONES].address-RADIO_UNIT_OFFSET; }
+          server << node[ii-ALR_ZONES].number; server.print(':');
           print_node_type(server, node[ii-ALR_ZONES].type);
           server.printP(html_e_option);
         }
@@ -1754,40 +1758,40 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
       server << trigger[webTrig].value; server.printP(html_e_tag);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Logging); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("6", text_1, text_On, (trigger[webTrig].setting >> 6) & B1);
-      server.radioButton("6", text_0, text_Off, !((trigger[webTrig].setting >> 6) & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
+      //server.radioButton2("6", 1, text_On, (trigger[webTrig].setting >> 6) & B1);
+      //server.radioButton2("6", 0, text_Off, !((trigger[webTrig].setting >> 6) & B1));
+      print_OnOffbutton(server, "6", (trigger[webTrig].setting >> 6) & B1);
+      server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Pass); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("2", text_1, text_On, (trigger[webTrig].setting >> 2) & B1);
-      server.radioButton("2", text_0, text_Off, !((trigger[webTrig].setting >> 2) & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
+      //server.radioButton2("2", 1, text_On, (trigger[webTrig].setting >> 2) & B1);
+      //server.radioButton2("2", 0, text_Off, !((trigger[webTrig].setting >> 2) & B1));
+      print_OnOffbutton(server, "2", (trigger[webTrig].setting >> 2) & B1);
+      server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Pass); server.print(' '); server.printP(text_once); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("4", text_1, text_On, (trigger[webTrig].setting >> 4) & B1);
-      server.radioButton("4", text_0, text_Off, !((trigger[webTrig].setting >> 4) & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+      //server.radioButton2("4", 1, text_On, (trigger[webTrig].setting >> 2) & B1);
+      //server.radioButton2("4", 0, text_Off, !((trigger[webTrig].setting >> 4) & B1));
+      print_OnOffbutton(server, "4", (trigger[webTrig].setting >> 2) & B1);
+      server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Pass); server.printP(html_e_td_td);      
       server.printP(html_radio_sl);
-      server.radioButton("1", text_1, text_value, (trigger[webTrig].setting >> 1) & B1);
-      server.radioButton("1", text_0, text_constant, !((trigger[webTrig].setting >> 1) & B1));
+      server.radioButton2("1", 1, text_value, (trigger[webTrig].setting >> 1) & B1);
+      server.radioButton2("1", 0, text_constant, !((trigger[webTrig].setting >> 1) & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);  
       server.printP(text_Pass); server.print(' '); server.printP(text_Off); server.printP(html_e_td_td);
       server.printP(html_radio_sl);
-      server.radioButton("m", text_1, text_On,  ((trigger[webTrig].setting >> 7) & B1) & !((trigger[webTrig].setting >> 8) & B1));
-      server.radioButton("m", text_0, text_Off, !((trigger[webTrig].setting >> 7) & B1) & !((trigger[webTrig].setting >> 8) & B1));
-      server.radioButton("m", text_2, text_Timer, !((trigger[webTrig].setting >> 7) & B1) & ((trigger[webTrig].setting >> 8) & B1));
+      server.radioButton2("m", 1, text_On,  ((trigger[webTrig].setting >> 7) & B1) & !((trigger[webTrig].setting >> 8) & B1));
+      server.radioButton2("m", 0, text_Off, !((trigger[webTrig].setting >> 7) & B1) & !((trigger[webTrig].setting >> 8) & B1));
+      server.radioButton2("m", 2, text_Timer, !((trigger[webTrig].setting >> 7) & B1) & ((trigger[webTrig].setting >> 8) & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Off); server.print(' '); server.printP(text_interval); server.printP(html_e_td_td);
       server.printP(html_s_tag); server << 'r'; server.printP(html_m_tag); 
       server << trigger[webTrig].off_time; server.printP(html_e_tag); server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Pass); server.print(' '); server.printP(text_Off); server.print(' '); server.printP(text_interval); server.printP(html_e_td_td);
       server.printP(html_radio_sb);
-      server.radioButton("l", text_0, text_seconds, !((trigger[webTrig].setting >> 15) & B1) & !((trigger[webTrig].setting >> 14) & B1));
-      server.radioButton("l", text_1, text_minutes, !((trigger[webTrig].setting >> 15) & B1) & ((trigger[webTrig].setting >> 14) & B1));
-      server.radioButton("l", text_2, text_hours, ((trigger[webTrig].setting >> 15) & B1) & !((trigger[webTrig].setting >> 14) & B1));
-      server.radioButton("l", text_3, text_days, ((trigger[webTrig].setting >> 15) & B1) & ((trigger[webTrig].setting >> 14) & B1));
+      server.radioButton2("l", 0, text_seconds, !((trigger[webTrig].setting >> 15) & B1) & !((trigger[webTrig].setting >> 14) & B1));
+      server.radioButton2("l", 1, text_minutes, !((trigger[webTrig].setting >> 15) & B1) & ((trigger[webTrig].setting >> 14) & B1));
+      server.radioButton2("l", 2, text_hours, ((trigger[webTrig].setting >> 15) & B1) & !((trigger[webTrig].setting >> 14) & B1));
+      server.radioButton2("l", 3, text_days, ((trigger[webTrig].setting >> 15) & B1) & ((trigger[webTrig].setting >> 14) & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_To); server.print(' '); server.printP(text_address); server.printP(html_e_td_td);
       server.printP(html_select); server << 't'; server.printP(html_e_tag);
@@ -1798,9 +1802,10 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
               node[ii].number  == trigger[webTrig].to_number &&
               node[ii].type    == trigger[webTrig].to_type) { server.printP(html_selected); }
           else               { server.printP(html_e_tag); }
-          if (node[ii].address < RADIO_UNIT_OFFSET) { server << "W:" << node[ii].address; }
-          else                                      { server << "R:" << node[ii].address-RADIO_UNIT_OFFSET; }
-          server.print(':'); server << node[ii].number; server.print(':');
+          print_address_type(server, node[ii].address);
+          //if (node[ii].address < RADIO_UNIT_OFFSET) { server << "W:" << node[ii].address; }
+          //else                                      { server << "R:" << node[ii].address-RADIO_UNIT_OFFSET; }
+          server << node[ii].number; server.print(':');
           switch(node[ii].type){
             case 'D': server.printP(text_Digital); break;
             case 'A': server.printP(text_Analog); break;
@@ -1889,8 +1894,7 @@ void webSetTimers(WebServer &server, WebServer::ConnectionType type, char *url_t
       webMenu(server, menu_Timers);
       server.printP(html_h1); server.printP(text_Timer); server.print(' '); server.printP(text_setup); server.printP(html_e_h1);  
       server.printP(html_form_s); server << PREFIX "/i"; server.printP(html_form_e);    
-      server.printP(html_table_tr_th); server.printP(text_hash);   
-      server.printP(html_e_th_th); server.printP(text_Name);
+      server.printP(html_table_tr_th_hash); server.printP(text_Name);
       server.printP(html_e_th_th); server.printP(text_On);
       server.printP(html_e_th_th); server.printP(text_Type);
       server.printP(html_e_th_th); server.printP(text_Mo);
@@ -1947,9 +1951,10 @@ void webSetTimers(WebServer &server, WebServer::ConnectionType type, char *url_t
         server.printP(html_e_td_td);
         time_temp = timer[i].next_on; server.print((char*)time_temp.formatedDateTime()); server.printP(html_e_td_td);
         time_temp = timer[i].next_off; server.print((char*)time_temp.formatedDateTime()); server.printP(html_e_td_td);
-        if (timer[i].to_address < RADIO_UNIT_OFFSET) { server << "W:" << timer[i].to_address; }
-        else                                         { server << "R:" << timer[i].to_address-RADIO_UNIT_OFFSET; }
-        server.print(':'); server << timer[i].to_number; server.print(':');
+        print_address_type(server, timer[i].to_address);
+        //if (timer[i].to_address < RADIO_UNIT_OFFSET) { server << "W:" << timer[i].to_address; }
+        //else                                         { server << "R:" << timer[i].to_address-RADIO_UNIT_OFFSET; }
+        server << timer[i].to_number; server.print(':');
         switch(timer[i].to_type){
           case 'D': server.printP(text_Digital); break;
           case 'A': server.printP(text_Analog); break;
@@ -1976,50 +1981,50 @@ void webSetTimers(WebServer &server, WebServer::ConnectionType type, char *url_t
       server.printP(html_s_tag); server << 'n'; server.printP(html_m_tag); server << timer[webTimer].name; server.printP(html_e_tag);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Timer); server.print(' '); server.printP(text_is); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0", text_1, text_On, timer[webTimer].setting & B1);
-      server.radioButton("0", text_0, text_Off, !(timer[webTimer].setting & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
+      //server.radioButton2("0", 1, text_On, timer[webTimer].setting & B1);
+      //server.radioButton2("0", 0, text_Off, !(timer[webTimer].setting & B1));
+      print_OnOffbutton(server, "0", timer[webTimer].setting & B1);
+      server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Type); server.printP(html_e_td_td);      
       server.printP(html_radio_sl);
-      server.radioButton("1", text_1, text_Calendar, (timer[webTimer].setting >> 1) & B1);
-      server.radioButton("1", text_0, text_Period, !((timer[webTimer].setting >> 1) & B1));
+      server.radioButton2("1", 1, text_Calendar, (timer[webTimer].setting >> 1) & B1);
+      server.radioButton2("1", 0, text_Period, !((timer[webTimer].setting >> 1) & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
       flash_println(server, &PGM_dow[1]); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("7", text_1, text_On, (timer[webTimer].setting >> 7) & B1);
-      server.radioButton("7", text_0, text_Off, !((timer[webTimer].setting >> 7) & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
+      //server.radioButton2("7", 1, text_On, (timer[webTimer].setting >> 7) & B1);
+      //server.radioButton2("7", 0, text_Off, !((timer[webTimer].setting >> 7) & B1));
+      print_OnOffbutton(server, "7", (timer[webTimer].setting >> 7) & B1);
+      server.printP(html_e_td_e_tr_tr_td); 
       flash_println(server, &PGM_dow[2]); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("6", text_1, text_On, (timer[webTimer].setting >> 6) & B1);
-      server.radioButton("6", text_0, text_Off, !((timer[webTimer].setting >> 6) & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
+      //server.radioButton2("6", 1, text_On, (timer[webTimer].setting >> 6) & B1);
+      //server.radioButton2("6", 0, text_Off, !((timer[webTimer].setting >> 6) & B1));
+      print_OnOffbutton(server, "6", (timer[webTimer].setting >> 6) & B1);
+      server.printP(html_e_td_e_tr_tr_td); 
       flash_println(server, &PGM_dow[3]); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("5", text_1, text_On, (timer[webTimer].setting >> 5) & B1);
-      server.radioButton("5", text_0, text_Off, !((timer[webTimer].setting >> 5) & B1));
+      //server.radioButton2("5", 1, text_On, (timer[webTimer].setting >> 5) & B1);
+      //server.radioButton2("5", 0, text_Off, !((timer[webTimer].setting >> 5) & B1));
+      print_OnOffbutton(server, "5", (timer[webTimer].setting >> 5) & B1);
       server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
       flash_println(server, &PGM_dow[4]); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("4", text_1, text_On, (timer[webTimer].setting >> 4) & B1);
-      server.radioButton("4", text_0, text_Off, !((timer[webTimer].setting >> 4) & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
+      //server.radioButton2("4", 1, text_On, (timer[webTimer].setting >> 4) & B1);
+      //server.radioButton2("4", 0, text_Off, !((timer[webTimer].setting >> 4) & B1));
+      print_OnOffbutton(server, "4", (timer[webTimer].setting >> 4) & B1);
+      server.printP(html_e_td_e_tr_tr_td); 
       flash_println(server, &PGM_dow[5]); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("3", text_1, text_On, (timer[webTimer].setting >> 3) & B1);
-      server.radioButton("3", text_0, text_Off, !((timer[webTimer].setting >> 3) & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
+      //server.radioButton2("3", 1, text_On, (timer[webTimer].setting >> 3) & B1);
+      //server.radioButton2("3", 0, text_Off, !((timer[webTimer].setting >> 3) & B1));
+      print_OnOffbutton(server, "3", (timer[webTimer].setting >> 3) & B1);
+      server.printP(html_e_td_e_tr_tr_td); 
       flash_println(server, &PGM_dow[6]); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("2", text_1, text_On, (timer[webTimer].setting >> 2) & B1);
-      server.radioButton("2", text_0, text_Off, !((timer[webTimer].setting >> 2) & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
+      //server.radioButton2("2", 1, text_On, (timer[webTimer].setting >> 2) & B1);
+      //server.radioButton2("2", 0, text_Off, !((timer[webTimer].setting >> 2) & B1));
+      print_OnOffbutton(server, "2", (timer[webTimer].setting >> 2) & B1);
+      server.printP(html_e_td_e_tr_tr_td); 
       flash_println(server, &PGM_dow[0]); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("8", text_1, text_On, (timer[webTimer].setting >> 8) & B1);
-      server.radioButton("8", text_0, text_Off, !((timer[webTimer].setting >> 8) & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
+      //server.radioButton2("8", 1, text_On, (timer[webTimer].setting >> 8) & B1);
+      //server.radioButton2("8", 0, text_Off, !((timer[webTimer].setting >> 8) & B1));
+      print_OnOffbutton(server, "8", (timer[webTimer].setting >> 8) & B1);
+      server.printP(html_e_td_e_tr_tr_td); 
 
       server.printP(text_Start); server.print(' '); server.printP(text_time); server.printP(html_e_td_td);
       server.printP(html_select); server << 'h'; server.printP(html_e_tag);
@@ -2046,20 +2051,20 @@ void webSetTimers(WebServer &server, WebServer::ConnectionType type, char *url_t
       server << timer[webTimer].period; server.printP(html_e_tag); server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Period); server.print(' '); server.printP(text_interval); server.printP(html_e_td_td);
       server.printP(html_radio_sb);
-      server.radioButton("l", text_0, text_seconds, !((timer[webTimer].setting >> 13 & B1) & (timer[webTimer].setting >> 12 & B1)));
-      server.radioButton("l", text_1, text_minutes, (!(timer[webTimer].setting >> 13 & B1) & (timer[webTimer].setting >> 12 & B1)));
-      server.radioButton("l", text_2, text_hours, ((timer[webTimer].setting >> 13 & B1) & !(timer[webTimer].setting >> 12 & B1)));
-      server.radioButton("l", text_3, text_days, ((timer[webTimer].setting >> 13 & B1) & (timer[webTimer].setting >> 12 & B1)));
+      server.radioButton2("l", 0, text_seconds, !((timer[webTimer].setting >> 13 & B1) & (timer[webTimer].setting >> 12 & B1)));
+      server.radioButton2("l", 1, text_minutes, (!(timer[webTimer].setting >> 13 & B1) & (timer[webTimer].setting >> 12 & B1)));
+      server.radioButton2("l", 2, text_hours, ((timer[webTimer].setting >> 13 & B1) & !(timer[webTimer].setting >> 12 & B1)));
+      server.radioButton2("l", 3, text_days, ((timer[webTimer].setting >> 13 & B1) & (timer[webTimer].setting >> 12 & B1)));
       server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Run); server.print(' '); server.printP(text_time); server.printP(html_e_td_td);
       server.printP(html_s_tag); server << 'r'; server.printP(html_m_tag); 
       server << timer[webTimer].run_time; server.printP(html_e_tag); server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Run); server.print(' '); server.printP(text_interval); server.printP(html_e_td_td);
       server.printP(html_radio_sb);
-      server.radioButton("i", text_0, text_seconds, !((timer[webTimer].setting >> 15 & B1) & (timer[webTimer].setting >> 14 & B1)));
-      server.radioButton("i", text_1, text_minutes, (!(timer[webTimer].setting >> 15 & B1) & (timer[webTimer].setting >> 14 & B1)));
-      server.radioButton("i", text_2, text_hours, ((timer[webTimer].setting >> 15 & B1) & !(timer[webTimer].setting >> 14 & B1)));
-      server.radioButton("i", text_3, text_days, ((timer[webTimer].setting >> 15 & B1) & (timer[webTimer].setting >> 14 & B1)));
+      server.radioButton2("i", 0, text_seconds, !((timer[webTimer].setting >> 15 & B1) & (timer[webTimer].setting >> 14 & B1)));
+      server.radioButton2("i", 1, text_minutes, (!(timer[webTimer].setting >> 15 & B1) & (timer[webTimer].setting >> 14 & B1)));
+      server.radioButton2("i", 2, text_hours, ((timer[webTimer].setting >> 15 & B1) & !(timer[webTimer].setting >> 14 & B1)));
+      server.radioButton2("i", 3, text_days, ((timer[webTimer].setting >> 15 & B1) & (timer[webTimer].setting >> 14 & B1)));
       server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
 
       server.printP(text_To); server.print(' '); server.printP(text_address); server.printP(html_e_td_td);
@@ -2071,9 +2076,10 @@ void webSetTimers(WebServer &server, WebServer::ConnectionType type, char *url_t
               node[ii].number  == timer[webTimer].to_number &&
               node[ii].type    == timer[webTimer].to_type) { server.printP(html_selected); }
           else               { server.printP(html_e_tag); }
-          if (node[ii].address < RADIO_UNIT_OFFSET) { server << "W:" << node[ii].address; }
-          else                                      { server << "R:" << node[ii].address-RADIO_UNIT_OFFSET; }
-          server.print(':'); server << node[ii].number; server.print(':');
+          print_address_type(server, node[ii].address);
+          //if (node[ii].address < RADIO_UNIT_OFFSET) { server << "W:" << node[ii].address; }
+          //else                                      { server << "R:" << node[ii].address-RADIO_UNIT_OFFSET; }
+          server << node[ii].number; server.print(':');
           switch(node[ii].type){
             case 'D': server.printP(text_Digital); break;
             case 'A': server.printP(text_Analog); break;
@@ -2240,148 +2246,174 @@ void webSetGlobal(WebServer &server, WebServer::ConnectionType type, char *url_t
       server.printP(text_Page); server.printP(html_e_th_e_tr);
       server.printP(html_tr_td);
       server.printP(text_Undefined); server.print(' '); server.printP(text_key); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0A", text_1, text_On, conf.alerts[alert_SMS] & B1);
-      server.radioButton("0A", text_0, text_Off, !(conf.alerts[alert_SMS] & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("1A", text_1, text_On, conf.alerts[1] & B1);
-      server.radioButton("1A", text_0, text_Off, !(conf.alerts[1] & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("2A", text_1, text_On, conf.alerts[2] & B1);
-      server.radioButton("2A", text_0, text_Off, !(conf.alerts[2] & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+      //server.radioButton2("0A", 1, text_On, conf.alerts[alert_SMS] & B1);
+      //server.radioButton2("0A", 0, text_Off, !(conf.alerts[alert_SMS] & B1));
+      print_OnOffbutton(server, "0A", conf.alerts[alert_SMS] & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("1A", 1, text_On, conf.alerts[alert_email] & B1);
+      //server.radioButton2("1A", 0, text_Off, !(conf.alerts[alert_email] & B1));
+      print_OnOffbutton(server, "1A", conf.alerts[alert_email] & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("2A", 1, text_On, conf.alerts[alert_page] & B1);
+      //server.radioButton2("2A", 0, text_Off, !(conf.alerts[alert_page] & B1));
+      print_OnOffbutton(server, "2A", conf.alerts[alert_page] & B1);
+      server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Group); server.print(' '); server.printP(text_disarmed); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0B", text_1, text_On, conf.alerts[alert_SMS] >> 1 & B1);
-      server.radioButton("0B", text_0, text_Off, !(conf.alerts[alert_SMS] >> 1 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("1B", text_1, text_On, conf.alerts[1] >> 1 & B1);
-      server.radioButton("1B", text_0, text_Off, !(conf.alerts[1] >> 1 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("2B", text_1, text_On, conf.alerts[2] >> 1 & B1);
-      server.radioButton("2B", text_0, text_Off, !(conf.alerts[2] >> 1 & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+      //server.radioButton2("0B", 1, text_On, conf.alerts[alert_SMS] >> 1 & B1);
+      //server.radioButton2("0B", 0, text_Off, !(conf.alerts[alert_SMS] >> 1 & B1));
+      print_OnOffbutton(server, "0B", conf.alerts[alert_SMS] >> 1 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("1B", 1, text_On, conf.alerts[alert_email] >> 1 & B1);
+      //server.radioButton2("1B", 0, text_Off, !(conf.alerts[alert_email] >> 1 & B1));
+      print_OnOffbutton(server, "1B", conf.alerts[alert_email] >> 1 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("2B", 1, text_On, conf.alerts[alert_page] >> 1 & B1);
+      //server.radioButton2("2B", 0, text_Off, !(conf.alerts[alert_page] >> 1 & B1));
+      print_OnOffbutton(server, "2B", conf.alerts[alert_page] >> 1 & B1);
+      server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Group); server.print(' '); server.printP(text_armed); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0C", text_1, text_On, conf.alerts[alert_SMS] >> 2 & B1);
-      server.radioButton("0C", text_0, text_Off, !(conf.alerts[alert_SMS] >> 2 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("1C", text_1, text_On, conf.alerts[1] >> 2 & B1);
-      server.radioButton("1C", text_0, text_Off, !(conf.alerts[1] >> 2 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("2C", text_1, text_On, conf.alerts[2] >> 2 & B1);
-      server.radioButton("2C", text_0, text_Off, !(conf.alerts[2] >> 2 & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+      //server.radioButton2("0C", 1, text_On, conf.alerts[alert_SMS] >> 2 & B1);
+      //server.radioButton2("0C", 0, text_Off, !(conf.alerts[alert_SMS] >> 2 & B1));
+      print_OnOffbutton(server, "0C", conf.alerts[alert_SMS] >> 2 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("1C", 1, text_On, conf.alerts[alert_email] >> 2 & B1);
+      //server.radioButton2("1C", 0, text_Off, !(conf.alerts[alert_email] >> 2 & B1));
+      print_OnOffbutton(server, "1C", conf.alerts[alert_email] >> 2 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("2C", 1, text_On, conf.alerts[alert_page] >> 2 & B1);
+      //server.radioButton2("2C", 0, text_Off, !(conf.alerts[alert_page] >> 2 & B1));
+      print_OnOffbutton(server, "2C", conf.alerts[alert_page] >> 2 & B1);
+      server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Zone); server.print(' '); server.printP(text_open); server.print(' '); server.printP(text_alarm); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0D", text_1, text_On, conf.alerts[alert_SMS] >> 3 & B1);
-      server.radioButton("0D", text_0, text_Off, !(conf.alerts[alert_SMS] >> 3 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("1D", text_1, text_On, conf.alerts[1] >> 3 & B1);
-      server.radioButton("1D", text_0, text_Off, !(conf.alerts[1] >> 3 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("2D", text_1, text_On, conf.alerts[2] >> 3 & B1);
-      server.radioButton("2D", text_0, text_Off, !(conf.alerts[2] >> 3 & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+      //server.radioButton2("0D", 1, text_On, conf.alerts[alert_SMS] >> 3 & B1);
+      //server.radioButton2("0D", 0, text_Off, !(conf.alerts[alert_SMS] >> 3 & B1));
+      print_OnOffbutton(server, "0D", conf.alerts[alert_SMS] >> 3 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("1D", 1, text_On, conf.alerts[alert_email] >> 3 & B1);
+      //server.radioButton2("1D", 0, text_Off, !(conf.alerts[alert_email] >> 3 & B1));
+      print_OnOffbutton(server, "1D", conf.alerts[alert_email] >> 3 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("2D", 1, text_On, conf.alerts[alert_page] >> 3 & B1);
+      //server.radioButton2("2D", 0, text_Off, !(conf.alerts[alert_page] >> 3 & B1));
+      print_OnOffbutton(server, "2D", conf.alerts[alert_page] >> 3 & B1);
+      server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Zone); server.print(' '); server.printP(text_tamper); server.print(' '); server.printP(text_alarm); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0E", text_1, text_On, conf.alerts[alert_SMS] >> 4 & B1);
-      server.radioButton("0E", text_0, text_Off, !(conf.alerts[alert_SMS] >> 4 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("1E", text_1, text_On, conf.alerts[1] >> 4 & B1);
-      server.radioButton("1E", text_0, text_Off, !(conf.alerts[1] >> 4 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("2E", text_1, text_On, conf.alerts[2] >> 4 & B1);
-      server.radioButton("2E", text_0, text_Off, !(conf.alerts[2] >> 4 & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+      //server.radioButton2("0E", 1, text_On, conf.alerts[alert_SMS] >> 4 & B1);
+      //server.radioButton2("0E", 0, text_Off, !(conf.alerts[alert_SMS] >> 4 & B1));
+      print_OnOffbutton(server, "0E", conf.alerts[alert_SMS] >> 4 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("1E", 1, text_On, conf.alerts[alert_email] >> 4 & B1);
+      //server.radioButton2("1E", 0, text_Off, !(conf.alerts[alert_email] >> 4 & B1));
+      print_OnOffbutton(server, "1E", conf.alerts[alert_email] >> 4 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("2E", 1, text_On, conf.alerts[alert_page] >> 4 & B1);
+      //server.radioButton2("2E", 0, text_Off, !(conf.alerts[alert_page] >> 4 & B1));
+      print_OnOffbutton(server, "2E", conf.alerts[alert_page] >> 4 & B1);
+      server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Zone); server.print(' '); server.printP(text_alarm); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0F", text_1, text_On, conf.alerts[alert_SMS] >> 5 & B1);
-      server.radioButton("0F", text_0, text_Off, !(conf.alerts[alert_SMS] >> 5 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("1F", text_1, text_On, conf.alerts[1] >> 5 & B1);
-      server.radioButton("1F", text_0, text_Off, !(conf.alerts[1] >> 5 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("2F", text_1, text_On, conf.alerts[2] >> 5 & B1);
-      server.radioButton("2F", text_0, text_Off, !(conf.alerts[2] >> 5 & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+      //server.radioButton2("0F", 1, text_On, conf.alerts[alert_SMS] >> 5 & B1);
+      //server.radioButton2("0F", 0, text_Off, !(conf.alerts[alert_SMS] >> 5 & B1));
+      print_OnOffbutton(server, "0F", conf.alerts[alert_SMS] >> 5 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("1F", 1, text_On, conf.alerts[alert_email] >> 5 & B1);
+      //server.radioButton2("1F", 0, text_Off, !(conf.alerts[alert_email] >> 5 & B1));
+      print_OnOffbutton(server, "1F", conf.alerts[alert_email] >> 5 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("2F", 1, text_On, conf.alerts[alert_page] >> 5 & B1);
+      //server.radioButton2("2F", 0, text_Off, !(conf.alerts[alert_page] >> 5 & B1));
+      print_OnOffbutton(server, "2F", conf.alerts[alert_page] >> 5 & B1);
+      server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_System); server.print(' '); server.printP(text_alarm); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0G", text_1, text_On, conf.alerts[alert_SMS] >> 6 & B1);
-      server.radioButton("0G", text_0, text_Off, !(conf.alerts[alert_SMS] >> 6 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("1G", text_1, text_On, conf.alerts[1] >> 6 & B1);
-      server.radioButton("1G", text_0, text_Off, !(conf.alerts[1] >> 6 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("2G", text_1, text_On, conf.alerts[2] >> 6 & B1);
-      server.radioButton("2G", text_0, text_Off, !(conf.alerts[2] >> 6 & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+      //server.radioButton2("0G", 1, text_On, conf.alerts[alert_SMS] >> 6 & B1);
+      //server.radioButton2("0G", 0, text_Off, !(conf.alerts[alert_SMS] >> 6 & B1));
+      print_OnOffbutton(server, "0G", conf.alerts[alert_SMS] >> 6 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("1G", 1, text_On, conf.alerts[alert_email] >> 6 & B1);
+      //server.radioButton2("1G", 0, text_Off, !(conf.alerts[alert_email] >> 6 & B1));
+      print_OnOffbutton(server, "1G", conf.alerts[alert_email] >> 6 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("2G", 1, text_On, conf.alerts[alert_page] >> 6 & B1);
+      //server.radioButton2("2G", 0, text_Off, !(conf.alerts[alert_page] >> 6 & B1));
+      print_OnOffbutton(server, "2G", conf.alerts[alert_page] >> 6 & B1);
+      server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Monitoring); server.print(' '); server.printP(text_started); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0H", text_1, text_On, conf.alerts[alert_SMS] >> 7 & B1);
-      server.radioButton("0H", text_0, text_Off, !(conf.alerts[alert_SMS] >> 7 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("1H", text_1, text_On, conf.alerts[1] >> 7 & B1);
-      server.radioButton("1H", text_0, text_Off, !(conf.alerts[1] >> 7 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("2H", text_1, text_On, conf.alerts[2] >> 7 & B1);
-      server.radioButton("2H", text_0, text_Off, !(conf.alerts[2] >> 7 & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+      //server.radioButton2("0H", 1, text_On, conf.alerts[alert_SMS] >> 7 & B1);
+      //server.radioButton2("0H", 0, text_Off, !(conf.alerts[alert_SMS] >> 7 & B1));
+      print_OnOffbutton(server, "0H", conf.alerts[alert_SMS] >> 7 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("1H", 1, text_On, conf.alerts[alert_email] >> 7 & B1);
+      //server.radioButton2("1H", 0, text_Off, !(conf.alerts[alert_email] >> 7 & B1));
+      print_OnOffbutton(server, "1H", conf.alerts[alert_email] >> 7 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("2H", 1, text_On, conf.alerts[alert_page] >> 7 & B1);
+      //server.radioButton2("2H", 0, text_Off, !(conf.alerts[alert_page] >> 7 & B1));
+      print_OnOffbutton(server, "2H", conf.alerts[alert_page] >> 7 & B1);
+      server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Queue); server.print(' '); server.printP(text_full); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0I", text_1, text_On, conf.alerts[alert_SMS] >> 8 & B1);
-      server.radioButton("0I", text_0, text_Off, !(conf.alerts[alert_SMS] >> 8 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("1I", text_1, text_On, conf.alerts[1] >> 8 & B1);
-      server.radioButton("1I", text_0, text_Off, !(conf.alerts[1] >> 8 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("2I", text_1, text_On, conf.alerts[2] >> 8 & B1);
-      server.radioButton("2I", text_0, text_Off, !(conf.alerts[2] >> 8 & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+      //server.radioButton2("0I", 1, text_On, conf.alerts[alert_SMS] >> 8 & B1);
+      //server.radioButton2("0I", 0, text_Off, !(conf.alerts[alert_SMS] >> 8 & B1));
+      print_OnOffbutton(server, "0I", conf.alerts[alert_SMS] >> 8 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("1I", 1, text_On, conf.alerts[alert_email] >> 8 & B1);
+      //server.radioButton2("1I", 0, text_Off, !(conf.alerts[alert_email] >> 8 & B1));
+      print_OnOffbutton(server, "1I", conf.alerts[alert_email] >> 8 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("2I", 1, text_On, conf.alerts[alert_page] >> 8 & B1);
+      //server.radioButton2("2I", 0, text_Off, !(conf.alerts[alert_page] >> 8 & B1));
+      print_OnOffbutton(server, "2I", conf.alerts[alert_page] >> 8 & B1);
+      server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Configuration); server.print(' '); server.printP(text_saved); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0J", text_1, text_On, conf.alerts[alert_SMS] >> 9 & B1);
-      server.radioButton("0J", text_0, text_Off, !(conf.alerts[alert_SMS] >> 9 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("1J", text_1, text_On, conf.alerts[1] >> 9 & B1);
-      server.radioButton("1J", text_0, text_Off, !(conf.alerts[1] >> 9 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("2J", text_1, text_On, conf.alerts[2] >> 9 & B1);
-      server.radioButton("2J", text_0, text_Off, !(conf.alerts[2] >> 9 & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+      //server.radioButton2("0J", 1, text_On, conf.alerts[alert_SMS] >> 9 & B1);
+      //server.radioButton2("0J", 0, text_Off, !(conf.alerts[alert_SMS] >> 9 & B1));
+      print_OnOffbutton(server, "0J", conf.alerts[alert_SMS] >> 9 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("1J", 1, text_On, conf.alerts[alert_email] >> 9 & B1);
+      //server.radioButton2("1J", 0, text_Off, !(conf.alerts[alert_email] >> 9 & B1));
+      print_OnOffbutton(server, "1J", conf.alerts[alert_email] >> 9 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("2J", 1, text_On, conf.alerts[alert_page] >> 9 & B1);
+      //server.radioButton2("2J", 0, text_Off, !(conf.alerts[alert_page] >> 9 & B1));
+      print_OnOffbutton(server, "2J", conf.alerts[alert_page] >> 9 & B1);
+      server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Power); server.print(' '); server.printP(text_state); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0K", text_1, text_On, conf.alerts[alert_SMS] >> 10 & B1);
-      server.radioButton("0K", text_0, text_Off, !(conf.alerts[alert_SMS] >> 10 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("1K", text_1, text_On, conf.alerts[1] >> 10 & B1);
-      server.radioButton("1K", text_0, text_Off, !(conf.alerts[1] >> 10 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("2K", text_1, text_On, conf.alerts[2] >> 10 & B1);
-      server.radioButton("2K", text_0, text_Off, !(conf.alerts[2] >> 10 & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+      //server.radioButton2("0K", 1, text_On, conf.alerts[alert_SMS] >> 10 & B1);
+      //server.radioButton2("0K", 0, text_Off, !(conf.alerts[alert_SMS] >> 10 & B1));
+      print_OnOffbutton(server, "0K", conf.alerts[alert_SMS] >> 10 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("1K", 1, text_On, conf.alerts[alert_email] >> 10 & B1);
+      //server.radioButton2("1K", 0, text_Off, !(conf.alerts[alert_email] >> 10 & B1));
+      print_OnOffbutton(server, "1K", conf.alerts[alert_email] >> 10 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("2K", 1, text_On, conf.alerts[alert_page] >> 10 & B1);
+      //server.radioButton2("2K", 0, text_Off, !(conf.alerts[alert_page] >> 10 & B1));
+      print_OnOffbutton(server, "2K", conf.alerts[alert_page] >> 10 & B1);
+      server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Battery); server.print(' '); server.printP(text_state); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0L", text_1, text_On, conf.alerts[alert_SMS] >> 11 & B1);
-      server.radioButton("0L", text_0, text_Off, !(conf.alerts[alert_SMS] >> 11 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("1L", text_1, text_On, conf.alerts[1] >> 11 & B1);
-      server.radioButton("1L", text_0, text_Off, !(conf.alerts[1] >> 11 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("2L", text_1, text_On, conf.alerts[2] >> 11 & B1);
-      server.radioButton("2L", text_0, text_Off, !(conf.alerts[2] >> 11 & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
+      //server.radioButton2("0L", 1, text_On, conf.alerts[alert_SMS] >> 11 & B1);
+      //server.radioButton2("0L", 0, text_Off, !(conf.alerts[alert_SMS] >> 11 & B1));
+      print_OnOffbutton(server, "0L", conf.alerts[alert_SMS] >> 11 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("1L", 1, text_On, conf.alerts[alert_email] >> 11 & B1);
+      //server.radioButton2("1L", 0, text_Off, !(conf.alerts[alert_email] >> 11 & B1));
+      print_OnOffbutton(server, "1L", conf.alerts[alert_email] >> 11 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("2L", 1, text_On, conf.alerts[alert_page] >> 11 & B1);
+      //server.radioButton2("2L", 0, text_Off, !(conf.alerts[alert_page] >> 11 & B1));
+      print_OnOffbutton(server, "2L", conf.alerts[alert_page] >> 11 & B1);
+      server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Trigger); server.print(' '); server.printP(text_alarm); server.printP(html_e_td_td);
-      server.printP(html_radio_s);
-      server.radioButton("0M", text_1, text_On, conf.alerts[alert_SMS] >> 12 & B1);
-      server.radioButton("0M", text_0, text_Off, !(conf.alerts[alert_SMS] >> 12 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("1M", text_1, text_On, conf.alerts[1] >> 12 & B1);
-      server.radioButton("1M", text_0, text_Off, !(conf.alerts[1] >> 12 & B1));
-      server.printP(html_div_e_e_td_td_radio_s);
-      server.radioButton("2M", text_1, text_On, conf.alerts[2] >> 12 & B1);
-      server.radioButton("2M", text_0, text_Off, !(conf.alerts[2] >> 12 & B1));
-      server.printP(html_div_e); server.printP(html_e_td_e_tr);
+      //server.radioButton2("0M", 1, text_On, conf.alerts[alert_SMS] >> 12 & B1);
+      //server.radioButton2("0M", 0, text_Off, !(conf.alerts[alert_SMS] >> 12 & B1));
+      print_OnOffbutton(server, "0M", conf.alerts[alert_SMS] >> 12 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("1M", 1, text_On, conf.alerts[alert_email] >> 12 & B1);
+      //server.radioButton2("1M", 0, text_Off, !(conf.alerts[alert_email] >> 12 & B1));
+      print_OnOffbutton(server, "1M", conf.alerts[alert_email] >> 12 & B1);
+      server.printP(html_e_td_td);
+      //server.radioButton2("2M", 1, text_On, conf.alerts[alert_page] >> 12 & B1);
+      //server.radioButton2("2M", 0, text_Off, !(conf.alerts[alert_page] >> 12 & B1));
+      print_OnOffbutton(server, "2M", conf.alerts[alert_page] >> 12 & B1);
+      server.printP(html_e_td_e_tr);
       server.printP(html_e_table);
       
       server.printP(html_F_A); // submit Apply
