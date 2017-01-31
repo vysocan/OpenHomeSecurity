@@ -61,6 +61,10 @@ P(text_enabled)        = "enabled";
 P(text_Enabled)        = "Enabled";
 P(text_all)            = "all";
 P(text_activated)      = "activated";
+P(text_de)             = "de";
+P(text_none)           = "none";
+P(text_Assoc)          = "Assoc.";
+P(text_Hysteresis)     = "Hysteresis";
 
 P(text_i_OK)             = "<i class='fa fa-check'></i>";
 P(text_i_ALARM)          = "<i class='fa fa-bell'></i>";
@@ -71,7 +75,7 @@ P(text_i_question)       = "<i class='fa fa-question'></i>";
 P(text_i_zone)           = "<i class='fa fa-square-o'></i>";
 P(text_i_qlobe)          = "<i class='fa fa-globe'></i>";
 P(text_i_auth)           = "<i class='fa fa-lock'></i>";
-P(text_i_phone)          = "<i class='fa fa-mobile'></i>";
+P(text_i_contact)        = "<i class='fa fa-address-card-o'></i>";
 P(text_i_key)            = "<i class='fa fa-key'></i>";
 P(text_i_sens)           = "<i class='fa fa-share-alt'></i>";
 
@@ -198,6 +202,10 @@ P(text_OUT1)   = "OUT 1";
 P(text_OUT2)   = "OUT 2";
 P(text_MQTT)   = "MQTT";
 P(text_failed)   = "failed";
+P(text_Failed)   = "Failed";
+P(text_868)   = "868";
+P(text_915)   = "915";
+P(text_Frequency)   = "Frequency";
 P(text_OHS)    = "OHS";
 P(text_slash)  = "/";
 P(text_publish) = "publish";
@@ -207,7 +215,6 @@ P(text_Received)  = "Received";
 P(text_packets)  = "packets";
 P(text_Not)  = "Not";
 P(text_as)  = "as";
-P(text_Failed)  = "Failed";
 P(text_acknowledged)  = "acknowledged";
 P(text_requested) = "requested";
 P(text_Fifo)  = "Fifo";
@@ -305,7 +312,7 @@ P(html_div_e)    = "</div>";
 
 P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open home security</title>"
 "<style type=\"text/css\">\n"
-"@import url(\"http://netdna.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.css\");\n"
+"@import url(\"http://netdna.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.css\");\n"
 "* {margin:0;padding:0}\n"
 "*, *:before, *:after {box-sizing:border-box}\n"
 "html, body {height:100%}\n"
@@ -318,17 +325,17 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 ".nav li a {position:relative;display:block;padding:15px 15px 15px 50px;color:#eee;border-bottom:1px solid #222}\n"
 ".nav li a:before {font:14px fontawesome;position:absolute;top:14px;left:20px}\n"
 ".nav li:nth-child(1) a:before {content:'\\f015'}"
-".nav li:nth-child(2) a:before {content:'\\f0ac'}"
+".nav li:nth-child(2) a:before {content:'\\f085'}"
 ".nav li:nth-child(3) a:before {content:'\\f096'}"
 ".nav li:nth-child(4) a:before {content:'\\f24d'}"
 ".nav li:nth-child(5) a:before {content:'\\f084'}"
-".nav li:nth-child(6) a:before {content:'\\f10b'}"
+".nav li:nth-child(6) a:before {content:'\\f2bc'}"
 ".nav li:nth-child(7) a:before {content:'\\f1e0'}"
 ".nav li:nth-child(8) a:before {content:'\\f064'}"
 ".nav li:nth-child(9) a:before {content:'\\f017'}"
 ".nav li:nth-child(10) a:before {content:'\\f0e8'}"
 ".nav li:nth-child(11) a:before {content:'\\f15c'}"
-".nav li:nth-child(12) a:before {content:'\\f085'}"
+".nav li:nth-child(12) a:before {content:'\\f188'}"
 ".nav li a:hover {background:#444}\n"
 ".nav li a.active {box-shadow:inset 5px 0 0 #5b5,inset 6px 0 0 #222;background:#444}\n"
 "input, select {cursor:pointer;height: 25px;border: 0px none;outline: 0px none;box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.2);padding: 0px 5px;background:#fff}\n"
@@ -350,7 +357,7 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 ".rc label:hover {background:#eee}\n"
 ".rc input:checked ~ label {color:#fff;background:#5b5}\n"
 "</style></head>\n<body>"
-"<div class='wrp'><div class='sbar'><div class='title'>OHS v.1.7.4</div><ul class='nav'>";
+"<div class='wrp'><div class='sbar'><div class='title'>OHS v.1.7.5</div><ul class='nav'>";
 
 P(htmlHead_e) = "</ul></div><div class='content isOpen'>";
 

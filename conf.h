@@ -19,17 +19,18 @@
 #define ALR_PIR_LOW   560
 #define ALR_PIR       690
 #define ALR_PIR_HI    820
-
 #define ALR_OK_LOW    270
 #define ALR_OK        370
 #define ALR_OK_HI     470
-// EEPROM config version
-#define VERSION 174
+
+#define VERSION       175         // EEPROM config version
+
+#define REG_LEN       22          // Size of one conf. element comming from nodes + 1 
 
 typedef enum {
-  alert_SMS = 0,
+  alert_SMS   = 0,
   alert_email = 1,
-  alert_page = 2
+  alert_page  = 2
 } alert_t;
 
 // Global configuration in chip EEPROM
@@ -172,7 +173,7 @@ void setDefault(){
   conf.password[0] = '#'; conf.password[1] = 0;
   conf.SMTP_user[0] = '#'; conf.SMTP_user[1] = 0;
   conf.SMTP_password[0] = '#'; conf.SMTP_password[1] = 0;
-  //       |- Free
+  //       |- Radio 0=868/1=915 MHz
   //       ||- Free
   //       |||- Free
   //       ||||- Free
@@ -180,7 +181,7 @@ void setDefault(){
   //       ||||||- Free
   //       |||||||- Daylight saving flag
   //       ||||||||- Power lost
-  //      B00000000
+  //       76543210
   conf.setting = 0;
 
 #define ALERT_TRIGGER             12
