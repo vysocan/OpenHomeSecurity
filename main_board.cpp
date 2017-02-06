@@ -888,7 +888,7 @@ void process_triggers(uint8_t _address, char _type, uint8_t _number, float _valu
       // check value
       _found = 0;
       switch(trigger[_trigger].symbol){
-        case 0: _found = 1; break; // Always
+        //case 0: _found = 1; break; // Always
         case 1: if (_value == trigger[_trigger].value) _found = 1; break;
         case 2: if (_value != trigger[_trigger].value) _found = 1; break;
         case 3: 
@@ -903,7 +903,7 @@ void process_triggers(uint8_t _address, char _type, uint8_t _number, float _valu
           if (_value > _to_compare) _found = 1;
           //WS.print(F("Trigger ")); WS.print(_value); WS.print(F(" > ")); WS.println(_to_compare); 
           break;
-        default : break;
+        default: _found = 1; break; // Always
       }
       if (_found) {
         //WS.println(F("trigger on"));
@@ -1373,6 +1373,7 @@ NIL_THREAD(RS485RXThread, arg) {
                       if (((conf.zone[j] >> 1) & B1111) == _group)
                         zone[j].setting &= ~(1 << 1); 
                     }
+                    /* *** ToDo: add bitwise reset of OUTs instead of full reset */
                     OUTs = 0; // Reset outs  
                     pinOUT1.write(LOW); pinOUT2.write(LOW); // Turn off OUT 1 & 2
                   }
@@ -1941,7 +1942,11 @@ NIL_THREAD(ServiceThread, arg) {
           uint8_t _group = (conf.zone[i] >> 1) & B1111;
           _tmp[0] = 'G'; _tmp[1] = 'A'; _tmp[2] = _group; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3); // Authorization auto arm
           // if group is enabled arm zone else log error to log
-          if (conf.group[_group] & B1) { group[(conf.zone[i] >> 1) & B1111].setting |= 1; } // arm group
+          if (conf.group[_group] & B1) { 
+            group[_group].setting |= 1;        // arm group
+            group[_group].arm_delay = 0;       // set arm delay off
+            _resp = sendCmdToGrp(_group, 15);  // send arm message to all nodes
+          } 
           else {
             if (!((group[_group].setting >> 7) & B1)) {
               group[_group].setting |= (1 << 7); // Set logged disabled bit On
@@ -2055,8 +2060,15 @@ NIL_THREAD(ServiceThread, arg) {
     }
     // Message queue, delete expired packets
     for (int8_t i=0; i < NODE_QUEUE ; i++){
-      if(time_temp.get() > node_queue[i].expire) {
-        node_queue[i].expire = 0; // mark as empty
+      if ((node_queue[i].address != 0) && (time_temp.get() > node_queue[i].expire)) {
+        /*
+        WS.print(F("QN ")); WS.print(i);
+        WS.print(F(" time ")); WS.print(time_temp.get()); WS.print(F("/")); WS.print(node_queue[i].expire);
+        WS.print(F(" node ")); WS.print(node_queue[i].index);
+        WS.println();
+        */
+        node_queue[i].expire  = 0; // mark as empty
+        node_queue[i].address = 0; // mark as empty
         node[node_queue[i].index].queue = 255; // Clear node queued flag
       }
     }
@@ -2237,7 +2249,8 @@ NIL_THREAD(RadioThread, arg) {
       for (_pos = 0; _pos < NODE_QUEUE; ++_pos) {
         if((node_queue[_pos].address == radio.SENDERID+RADIO_UNIT_OFFSET) && (node_queue[_pos].expire != 0)) {
           if (sendData(node_queue[_pos].address, node_queue[_pos].msg, node_queue[_pos].length)) {
-            node_queue[_pos].expire = 0;
+            node_queue[_pos].expire  = 0; // mark as empty
+            node_queue[_pos].address = 0; // mark as empty
             node[node_queue[_pos].index].queue = 255; // Clear node queued flag 
           }
           break; // we can send only one queued message to single address as we are in reciever thread
@@ -2310,15 +2323,6 @@ NIL_THREAD(SensorThread, arg) {
           // Triggers
           process_triggers(node[_node].address, node[_node].type, node[_node].number, node[_node].value);
         } // node enbled
-        /* Moved to reciveing thread to hadle all messages for single address at once
-        // Message queue to sleeping nodes
-        if (node[_node].queue != 255) {
-          if (sendData(node[_node].address, node_queue[node[_node].queue].msg, node_queue[node[_node].queue].length)) {
-            node_queue[node[_node].queue].expire = 0;
-            node[_node].queue = 255;
-          }
-        }
-        */
         break; // no need to look for other node
       } // if address 
     } // for
