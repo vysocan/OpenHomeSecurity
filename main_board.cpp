@@ -86,6 +86,7 @@ EthernetClient SMTPethClient;
 #define RADIO_RETRY       5     // # of retry 
 #define ENABLE_ATC              // comment out this line to disable AUTO TRANSMISSION CONTROL
 #define RADIO_UNIT_OFFSET 15    // Radio nodes start at address 17, since they share addresses with wired nodes 
+//#define ATC_RSSI          -20
 #ifdef ENABLE_ATC
   RFM69_ATC radio;
 #else
@@ -157,31 +158,31 @@ NilFIFO<alarm_event_t, 3> alarm_fifo;  // Queue must be equal to # of AET
 struct zone_t {
   uint32_t last_PIR = 0;
   uint32_t last_OK  = 0;
-  char last_event    = 'N';
-  //       |- Full fifo queue flag
-  //       ||- Free
-  //       |||- Free
-  //       ||||- Free
-  //       |||||- Free
-  //       ||||||- Alarm 
-  //       |||||||- Free 
-  //       ||||||||- 
-  //       76543210
-  uint8_t setting   = 0;  
+  char last_event   = 'N';
+  //                   |- Full fifo queue flag
+  //                   ||- Free
+  //                   |||- Free
+  //                   ||||- Free
+  //                   |||||- Free
+  //                   ||||||- Free 
+  //                   |||||||- Alarm 
+  //                   ||||||||- Free
+  //                   76543210
+  uint8_t setting   = B00000000;  
 };
 volatile zone_t zone[ALR_ZONES];
 
 struct group_t {  
-  //       |- Disabled group log once flag
-  //       ||- Free
-  //       |||- Free
-  //       ||||- Free
-  //       |||||- Free
-  //       ||||||-  Waiting for authorization
-  //       |||||||-  Alarm
-  //       ||||||||-  Armed
-  //       76543210
-  uint8_t setting   = 0;
+  //                   |- Disabled group log once flag
+  //                   ||- Free
+  //                   |||- Free
+  //                   ||||- Free
+  //                   |||||- Free
+  //                   ||||||-  Waiting for authorization
+  //                   |||||||-  Alarm
+  //                   ||||||||-  Armed
+  //                   76543210
+  uint8_t setting   = B00000000;
   uint8_t arm_delay = 0;
 };
 volatile group_t group[ALR_GROUPS];
@@ -1057,7 +1058,7 @@ NIL_THREAD(ZoneThread, arg) {
         group[i].arm_delay--;
         if (!group[i].arm_delay) { 
           _resp = sendCmdToGrp(i, 15);  // send arm message to all nodes
-          _tmp[0] = 'G'; _tmp[1] = 'S'; _tmp[2] = i; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3);
+          _tmp[0] = 'G'; _tmp[1] = 'S'; _tmp[2] = i;  pushToLog(_tmp, 3);
         }
       }
     }
@@ -1102,7 +1103,7 @@ NIL_THREAD(ZoneThread, arg) {
               if (!(conf.group[_group] & B1)) {
                 if (!((group[_group].setting >> 7) & B1)) {
                   group[_group].setting |= (1 << 7); // Set logged disabled bit On
-                  _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = _group; /*_tmp[3] = 0; */ pushToLog(_tmp, 3);
+                  _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = _group;  pushToLog(_tmp, 3);
                 }
               } else {
                 //   group armed
@@ -1111,13 +1112,13 @@ NIL_THREAD(ZoneThread, arg) {
                   alarm_event_t* p = alarm_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
                   if (p == 0) {
                     if (!((zone[i].setting >> 7) & B1)) {
-                      _tmp[0] = 'Z'; _tmp[1] = 'P'; _tmp[2] = i; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3); 
+                      _tmp[0] = 'Z'; _tmp[1] = 'P'; _tmp[2] = i;  pushToLog(_tmp, 3); 
                       pushToLog("FA"); // Alarm queue is full
                     }
                     zone[i].setting |= (1 << 7); // Set On Alarm queue is full  
                     continue; // Continue if no free space.
                   }
-                  _tmp[0] = 'Z'; _tmp[1] = 'P'; _tmp[2] = i; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3); 
+                  _tmp[0] = 'Z'; _tmp[1] = 'P'; _tmp[2] = i;  pushToLog(_tmp, 3); 
                   zone[i].setting |=  (1 << 1); // Set alarm bit On
                   zone[i].setting &= ~(1 << 7); // Set Off Alarm queue is full
                   p->zone = i; p->type = zone[i].last_event; alarm_fifo.signalData(); // Signal idle thread data is available.
@@ -1136,7 +1137,7 @@ NIL_THREAD(ZoneThread, arg) {
               if (!(conf.group[_group] & B1)) {
                 if (!((group[_group].setting >> 7) & B1)) {
                   group[_group].setting |= (1 << 7); // Set logged disabled bit On
-                  _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = _group; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3);
+                  _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = _group;  pushToLog(_tmp, 3);
                 }
               } else {
                 if (zone[i].last_event == 'T') {
@@ -1144,13 +1145,13 @@ NIL_THREAD(ZoneThread, arg) {
                   alarm_event_t* p = alarm_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
                   if (p == 0) {
                     if (!((zone[i].setting >> 7) & B1)) {
-                      _tmp[0] = 'Z'; _tmp[1] = 'T'; _tmp[2] = i; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3);
+                      _tmp[0] = 'Z'; _tmp[1] = 'T'; _tmp[2] = i;  pushToLog(_tmp, 3);
                       pushToLog("FA"); // Alarm queue is full
                     }
                     zone[i].setting |= (1 << 7); // Set On Alarm queue is full                    
                     continue; // Continue if no free space.
                   }
-                  _tmp[0] = 'Z'; _tmp[1] = 'T'; _tmp[2] = i; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3);
+                  _tmp[0] = 'Z'; _tmp[1] = 'T'; _tmp[2] = i;  pushToLog(_tmp, 3);
                   zone[i].setting |=  (1 << 1); // Set alarm bit On
                   zone[i].setting &= ~(1 << 7); // Set Off Alarm queue is full
                   p->zone = i; p->type = zone[i].last_event; alarm_fifo.signalData(); // Signal idle thread data is available.
@@ -1309,7 +1310,7 @@ NIL_THREAD(thdFcn, name) {
       // Trigger OUT 1 & 2              
       pinOUT1.write(((OUTs >> 0) & B1));
       pinOUT2.write(((OUTs >> 1) & B1));
-      _tmp[0] = 'S'; _tmp[1] = 'X';  _tmp[2] = _group; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3); // ALARM no auth.
+      _tmp[0] = 'S'; _tmp[1] = 'X';  _tmp[2] = _group;  pushToLog(_tmp, 3); // ALARM no auth.
     }
     //WS.print((char*)name); WS.println(F(" end"));
     // Signal FIFO slot is free.
@@ -1381,8 +1382,8 @@ NIL_THREAD(RS485RXThread, arg) {
                   group[_group].setting &= ~(1 << 2);    // set auth bit off
                   group[_group].arm_delay = 0;       // Reset arm delay
                   _resp = sendCmdToGrp(_group, 20);  // send quiet message to all nodes
-                  _tmp[0] = 'A'; _tmp[1] = 'D'; _tmp[2] = i; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3); // Key
-                  _tmp[0] = 'G'; _tmp[1] = 'D'; _tmp[2] = _group; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3); // Group
+                  _tmp[0] = 'A'; _tmp[1] = 'D'; _tmp[2] = i;  pushToLog(_tmp, 3); // Key
+                  _tmp[0] = 'G'; _tmp[1] = 'D'; _tmp[2] = _group;   pushToLog(_tmp, 3); // Group
                 } else { // Just do arm
                   _tmp[0] = 'A'; _tmp[1] = 'A'; _tmp[2] = i; _tmp[3] = 0; pushToLog(_tmp);
                   // if group enabled arm group or log error to log. 
@@ -1391,11 +1392,11 @@ NIL_THREAD(RS485RXThread, arg) {
                     group[_group].arm_delay = conf.arm_delay; // set arm delay
                     _resp = sendCmdToGrp(_group, 10);  // send arming message to all nodes
                   } 
-                  else { _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = _group; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3); }
+                  else { _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = _group;  pushToLog(_tmp, 3); }
                 }
                 break; // no need to try other
               } else { // key is not enabled
-                _tmp[0] = 'A'; _tmp[1] = 'F'; _tmp[2] = i; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3);
+                _tmp[0] = 'A'; _tmp[1] = 'F'; _tmp[2] = i;  pushToLog(_tmp, 3);
               }
             } // key matched
             if (_resp!=0 && i==NUM_OF_KEYS-1) { // may be we should log unknow keys 
@@ -1408,7 +1409,7 @@ NIL_THREAD(RS485RXThread, arg) {
           } // for
         } // node is enabled for authorization
         else { // log disabled remote nodes
-          _tmp[0] = 'N'; _tmp[1] = 'F'; _tmp[2] = RX_msg.address; _tmp[3] = 'i'; /*_tmp[4] = 0;*/ pushToLog(_tmp, 4);
+          _tmp[0] = 'N'; _tmp[1] = 'F'; _tmp[2] = RX_msg.address; _tmp[3] = 'i';  pushToLog(_tmp, 4);
         } 
       } else { // node not found
         // call this address to register
@@ -1940,7 +1941,7 @@ NIL_THREAD(ServiceThread, arg) {
       if ((conf.zone[i] & B1) && ((conf.zone[i] >> 7) & B1)){ // Zone enabled and auto arming
         if ( timestamp.get() >= (zone[i].last_PIR + (conf.auto_arm * SECS_PER_MIN))) {
           uint8_t _group = (conf.zone[i] >> 1) & B1111;
-          _tmp[0] = 'G'; _tmp[1] = 'A'; _tmp[2] = _group; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3); // Authorization auto arm
+          _tmp[0] = 'G'; _tmp[1] = 'A'; _tmp[2] = _group;  pushToLog(_tmp, 3); // Authorization auto arm
           // if group is enabled arm zone else log error to log
           if (conf.group[_group] & B1) { 
             group[_group].setting |= 1;        // arm group
@@ -1950,7 +1951,7 @@ NIL_THREAD(ServiceThread, arg) {
           else {
             if (!((group[_group].setting >> 7) & B1)) {
               group[_group].setting |= (1 << 7); // Set logged disabled bit On
-              _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = _group; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3);
+              _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = _group;  pushToLog(_tmp, 3);
             }
           }
         }
@@ -1960,7 +1961,7 @@ NIL_THREAD(ServiceThread, arg) {
     for (int8_t i=0; i < ALR_ZONES ; i++){
       if ((conf.zone[i] & B1) && ((conf.zone[i] >> 8) & B1)){ // Zone enabled and still open alarm enabled
         if ( timestamp.get() >= (zone[i].last_OK + (conf.open_alarm * SECS_PER_MIN))) {
-          _tmp[0] = 'Z'; _tmp[1] = 'O'; _tmp[2] = i; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3); // Authorization still open alarm
+          _tmp[0] = 'Z'; _tmp[1] = 'O'; _tmp[2] = i;  pushToLog(_tmp, 3); // Authorization still open alarm
           zone[i].last_OK = timestamp.get();    // update current timestamp
         }
       }
@@ -2126,7 +2127,7 @@ NIL_THREAD(ServiceThread, arg) {
         //WS.println("gsm slot exit");
         if (_GSMlastStatus != GSMreg) { // if modem registration changes log it
           _GSMlastStatus = GSMreg;
-          _tmp[0] = 'M'; _tmp[1] = GSMreg; _tmp[2] = GSMstrength; /*_tmp[3] = 0;*/ pushToLog(_tmp, 3); 
+          _tmp[0] = 'M'; _tmp[1] = GSMreg; _tmp[2] = GSMstrength;  pushToLog(_tmp, 3); 
         }
       }
     }
@@ -2376,7 +2377,7 @@ NIL_THREAD(RegThread, arg) {
           node[nodes].setting  = p->setting;
           node[nodes].last_OK  = timestamp.get();
           strncpy(node[nodes].name, p->name, NAME_LEN-1); node[nodes].name[NAME_LEN-1] = 0;
-          _tmp[0] = 'N'; _tmp[1] = 'R'; _tmp[2] = p->address; _tmp[3] = p->number; _tmp[4] = p->node; _tmp[5] = p->type; /*_tmp[4] = 0;*/ pushToLog(_tmp, 6);
+          _tmp[0] = 'N'; _tmp[1] = 'R'; _tmp[2] = p->address; _tmp[3] = p->number; _tmp[4] = p->node; _tmp[5] = p->type;  pushToLog(_tmp, 6);
           // WS.print(F("Reg: ")); WS.println(nodes); WS.print(node[nodes].address); WS.print(node[nodes].type);
           // WS.println(node[nodes].number); WS.println(node[nodes].setting,BIN); 
           nodes++;
@@ -2385,13 +2386,13 @@ NIL_THREAD(RegThread, arg) {
           node[_node].setting  = p->setting;
           node[_node].last_OK  = timestamp.get();
           strncpy(node[_node].name, p->name, NAME_LEN-1); node[_node].name[NAME_LEN-1] = 0;
-          _tmp[0] = 'N'; _tmp[1] = 'r'; _tmp[2] = p->address; _tmp[3] = p->number; _tmp[4] = p->node; _tmp[5] = p->type;/*_tmp[4] = 0;*/ pushToLog(_tmp, 6);
+          _tmp[0] = 'N'; _tmp[1] = 'r'; _tmp[2] = p->address; _tmp[3] = p->number; _tmp[4] = p->node; _tmp[5] = p->type; pushToLog(_tmp, 6);
           // WS.print(F("Rereg: ")); WS.println(_node+1); WS.print(node[_node].address); WS.print(node[_node].type);
           // WS.println(node[_node].number); WS.println(node[_node].setting,BIN); 
         }
         break;
         default:
-          _tmp[0] = 'N'; _tmp[1] = 'E'; _tmp[2] = p->address; _tmp[3] = p->number; _tmp[4] = p->node; _tmp[5] = p->type;/*_tmp[4] = 0;*/ pushToLog(_tmp, 6);
+          _tmp[0] = 'N'; _tmp[1] = 'E'; _tmp[2] = p->address; _tmp[3] = p->number; _tmp[4] = p->node; _tmp[5] = p->type; pushToLog(_tmp, 6);
         break;
     }
     // Signal FIFO slot is free.

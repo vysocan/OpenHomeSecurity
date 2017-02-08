@@ -184,6 +184,7 @@ P(text_Humidity)    = "Humidity";
 P(text_Pressure)    = "Pressure";
 P(text_Input)       = "Input";
 P(text_Voltage)     = "Voltage";
+P(text_TX_Power)    = "TX Power";
 P(text_sensor)      = "sensor";
 P(text_Sensor)      = "Sensor";
 P(text_Value)       = "Value";
