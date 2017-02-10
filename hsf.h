@@ -259,6 +259,13 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
           case 'd': conf.time_std_month  = strtol(value, NULL, 10); break;
           case 'f': conf.time_std_hour   = strtol(value, NULL, 10); break;
           case 'g': conf.time_std_offset = strtol(value, NULL, 10); break;
+          case 'H' ... 'K': conf.ntp_ip[name[0]-72] = strtol(value, NULL, 10); break;
+          /*
+          case 'H': conf.ntp_ip[0] = strtol(value, NULL, 10); break;
+          case 'I': conf.ntp_ip[1] = strtol(value, NULL, 10); break;
+          case 'J': conf.ntp_ip[2] = strtol(value, NULL, 10); break;
+          case 'K': conf.ntp_ip[3] = strtol(value, NULL, 10); break;    
+          */
           }
       } while (repeat);
       server.httpSeeOther(PREFIX "/");
@@ -385,11 +392,11 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       server.printP(text_NTP); server.print(' '); server.printP(text_address); server.printP(html_e_td_td);
       server.printP(html_s_tag_s); server << 'H'; server.printP(html_m_tag); 
       server << conf.ntp_ip[0]; server.printP(html_e_tag); server.print('.');
-      server.printP(html_s_tag_s); server << 'J'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'I'; server.printP(html_m_tag); 
       server << conf.ntp_ip[1]; server.printP(html_e_tag); server.print('.');
-      server.printP(html_s_tag_s); server << 'K'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'J'; server.printP(html_m_tag); 
       server << conf.ntp_ip[2]; server.printP(html_e_tag); server.print('.');
-      server.printP(html_s_tag_s); server << 'L'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'K'; server.printP(html_m_tag); 
       server << conf.ntp_ip[3]; server.printP(html_e_tag); server.printP(html_e_td_e_tr);
       server.printP(html_e_table);
     
@@ -1303,7 +1310,7 @@ void webSetSens(WebServer &server, WebServer::ConnectionType type, char *url_tai
         server << value;
         switch(node[i].type){
           case 'T': server.printP(text_degC); break;
-          case 'H':
+          case 'H': // " %"
           case 'X': server.print(" %" ); break;
           case 'P': server.printP(text_mBar); break;
           case 'V': server.printP(text_Volt); break;
@@ -1370,27 +1377,35 @@ void webSetMQTT(WebServer &server, WebServer::ConnectionType type, char *url_tai
             if (value[0] == '0') conf.mqtt &= ~(1 << (name[0]-48));
             else                 conf.mqtt |=  (1 << (name[0]-48));
           break;
+          case 'n' ... 'q':conf.mqtt_ip[name[0]-110] = strtol(value, NULL, 10); break;
+          /*
           case 'z': conf.mqtt_ip[0] = strtol(value, NULL, 10); break;
           case 'x': conf.mqtt_ip[1] = strtol(value, NULL, 10); break;
-          case 'c': conf.mqtt_ip[2] = strtol(value, NULL, 10); break;
+          case 'q': conf.mqtt_ip[2] = strtol(value, NULL, 10); break;
           case 'v': conf.mqtt_ip[3] = strtol(value, NULL, 10); break;
-          case 'b': conf.mqtt_port = strtol(value, NULL, 10); break;
+          */
+          case 'P': conf.mqtt_port = strtol(value, NULL, 10); break;
+          case 'a' ... 'd': conf.ip[name[0]-97] = strtol(value, NULL, 10); break;
+          /*
           case 'Q': conf.ip[0] = strtol(value, NULL, 10); break;
           case 'W': conf.ip[1] = strtol(value, NULL, 10); break;
           case 'E': conf.ip[2] = strtol(value, NULL, 10); break;
           case 'R': conf.ip[3] = strtol(value, NULL, 10); break;
+          */
+          case 'f' ... 'i': conf.gw[name[0]-102] = strtol(value, NULL, 10); break;
+          /*
           case 'Y': conf.gw[0] = strtol(value, NULL, 10); break;
           case 'U': conf.gw[1] = strtol(value, NULL, 10); break;
           case 'I': conf.gw[2] = strtol(value, NULL, 10); break;
           case 'O': conf.gw[3] = strtol(value, NULL, 10); break;
+          */
+          case 'j' ... 'm': conf.mask[name[0]-106] = strtol(value, NULL, 10); break;
+          /*
           case 'Z': conf.mask[0] = strtol(value, NULL, 10); break;
           case 'X': conf.mask[1] = strtol(value, NULL, 10); break;
           case 'C': conf.mask[2] = strtol(value, NULL, 10); break;
           case 'V': conf.mask[3] = strtol(value, NULL, 10); break;
-          case 'H': conf.ntp_ip[0] = strtol(value, NULL, 10); break;
-          case 'J': conf.ntp_ip[1] = strtol(value, NULL, 10); break;
-          case 'K': conf.ntp_ip[2] = strtol(value, NULL, 10); break;
-          case 'L': conf.ntp_ip[3] = strtol(value, NULL, 10); break;    
+          */
           case 'A': // Apply
             client.disconnect();
             client.setServer(conf.mqtt_ip, conf.mqtt_port);
@@ -1409,31 +1424,31 @@ void webSetMQTT(WebServer &server, WebServer::ConnectionType type, char *url_tai
       server.printP(html_form_s); server << PREFIX "/m"; server.printP(html_form_e);    
       server.printP(html_table_tr_td);
       server.printP(text_IP); server.print(' '); server.printP(text_address); server.printP(html_e_td_td);
-      server.printP(html_s_tag_s); server << 'Q'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'a'; server.printP(html_m_tag); 
       server << conf.ip[0]; server.printP(html_e_tag); server.print('.');
-      server.printP(html_s_tag_s); server << 'W'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'b'; server.printP(html_m_tag); 
       server << conf.ip[1]; server.printP(html_e_tag); server.print('.');
-      server.printP(html_s_tag_s); server << 'E'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'c'; server.printP(html_m_tag); 
       server << conf.ip[2]; server.printP(html_e_tag); server.print('.');
-      server.printP(html_s_tag_s); server << 'R'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'd'; server.printP(html_m_tag); 
       server << conf.ip[3]; server.printP(html_e_tag); server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Gateway); server.print(' '); server.printP(text_address); server.printP(html_e_td_td);
-      server.printP(html_s_tag_s); server << 'Y'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'f'; server.printP(html_m_tag); 
       server << conf.gw[0]; server.printP(html_e_tag); server.print('.');
-      server.printP(html_s_tag_s); server << 'U'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'g'; server.printP(html_m_tag); 
       server << conf.gw[1]; server.printP(html_e_tag); server.print('.');
-      server.printP(html_s_tag_s); server << 'I'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'h'; server.printP(html_m_tag); 
       server << conf.gw[2]; server.printP(html_e_tag); server.print('.');
-      server.printP(html_s_tag_s); server << 'O'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'i'; server.printP(html_m_tag); 
       server << conf.gw[3]; server.printP(html_e_tag); server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Mask); server.printP(html_e_td_td);
-      server.printP(html_s_tag_s); server << 'Z'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'j'; server.printP(html_m_tag); 
       server << conf.mask[0]; server.printP(html_e_tag); server.print('.');
-      server.printP(html_s_tag_s); server << 'X'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'k'; server.printP(html_m_tag); 
       server << conf.mask[1]; server.printP(html_e_tag); server.print('.');
-      server.printP(html_s_tag_s); server << 'C'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'l'; server.printP(html_m_tag); 
       server << conf.mask[2]; server.printP(html_e_tag); server.print('.');
-      server.printP(html_s_tag_s); server << 'V'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'm'; server.printP(html_m_tag); 
       server << conf.mask[3]; server.printP(html_e_tag); server.printP(html_e_td_e_tr); 
       server.printP(html_e_table);   
 
@@ -1464,16 +1479,16 @@ void webSetMQTT(WebServer &server, WebServer::ConnectionType type, char *url_tai
       print_OnOffbutton(server, "2", (conf.mqtt >> 2) & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_MQTT); server.print(' '); server.printP(text_address); server.printP(html_e_td_td);
-      server.printP(html_s_tag_s); server << 'z'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'n'; server.printP(html_m_tag); 
       server << conf.mqtt_ip[0]; server.printP(html_e_tag); server.print('.');
-      server.printP(html_s_tag_s); server << 'x'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'o'; server.printP(html_m_tag); 
       server << conf.mqtt_ip[1]; server.printP(html_e_tag); server.print('.');
-      server.printP(html_s_tag_s); server << 'c'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'p'; server.printP(html_m_tag); 
       server << conf.mqtt_ip[2]; server.printP(html_e_tag); server.print('.');
-      server.printP(html_s_tag_s); server << 'v'; server.printP(html_m_tag); 
+      server.printP(html_s_tag_s); server << 'q'; server.printP(html_m_tag); 
       server << conf.mqtt_ip[3]; server.printP(html_e_tag); server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_MQTT); server.print(' '); server.printP(text_port); server.printP(html_e_td_td);
-      server.printP(html_s_tag); server << 'b'; server.printP(html_m_tag); 
+      server.printP(html_s_tag); server << 'P'; server.printP(html_m_tag); 
       server << conf.mqtt_port; server.printP(html_e_tag);
       server.printP(html_e_td_e_tr); 
       server.printP(html_e_table);      
