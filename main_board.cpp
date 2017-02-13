@@ -1677,32 +1677,32 @@ NIL_THREAD(AlertThread, arg) {
     switch(alert_message[5]){
       case 'S': // System
         _group = 100; // any group
-        strcat_P(sms_text, (char*)text_System); strcat_P(sms_text, (char*)text_space);
+        strcat_P(sms_text, (char*)text_System); strcat(sms_text, " ");
         switch(alert_message[6]){
           case 'B': // Battery
-            strcat_P(sms_text, (char*)text_battery); strcat_P(sms_text, (char*)text_space);
-            strcat_P(sms_text, (char*)text_is); strcat_P(sms_text, (char*)text_space);
+            strcat_P(sms_text, (char*)text_battery); strcat(sms_text, " ");
+            strcat_P(sms_text, (char*)text_is); strcat(sms_text, " ");
             if (alert_message[7] == 'L') strcat_P(sms_text, (char*)text_low);
             else strcat_P(sms_text, (char*)text_OK);
           break;
           case 'A': // AC
-            strcat_P(sms_text, (char*)text_power); strcat_P(sms_text, (char*)text_space);
-            strcat_P(sms_text, (char*)text_is); strcat_P(sms_text, (char*)text_space);
+            strcat_P(sms_text, (char*)text_power); strcat(sms_text, " ");
+            strcat_P(sms_text, (char*)text_is); strcat(sms_text, " ");
             if (alert_message[7] == 'L') strcat_P(sms_text, (char*)text_On);
             else strcat_P(sms_text, (char*)text_Off);
           break;
           case 'C':
-            strcat_P(sms_text, (char*)text_configuration); strcat_P(sms_text, (char*)text_space);
+            strcat_P(sms_text, (char*)text_configuration); strcat(sms_text, " ");
             switch(alert_message[7]){
               case 'W': strcat_P(sms_text, (char*)text_saved); break; // conf. saved
               case 'P': strcat_P(sms_text, (char*)text_saved); strcat_P(sms_text, (char*)text_cosp); strcat_P(sms_text, (char*)text_system);
-                strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_disabled);break; // conf. saved
+                strcat(sms_text, " "); strcat_P(sms_text, (char*)text_disabled);break; // conf. saved
               case 'L': strcat_P(sms_text, (char*)text_loaded); break; // conf. saved
               case 'R': strcat_P(sms_text, (char*)text_reset); break; // conf. saved 
             }
           break;
           case 'S': 
-            strcat_P(sms_text, (char*)text_monitoring); strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_started);
+            strcat_P(sms_text, (char*)text_monitoring); strcat(sms_text, " "); strcat_P(sms_text, (char*)text_started);
           break;
           case 'X': 
             strcat_P(sms_text, (char*)text_ALARM);
@@ -1711,47 +1711,47 @@ NIL_THREAD(AlertThread, arg) {
       break;
       case 'Z': // Zone
         _group = ((conf.zone[alert_message[7]] >> 1) & B1111); // only specific group
-        strcat_P(sms_text, (char*)text_Zone); strcat_P(sms_text, (char*)text_space);
+        strcat_P(sms_text, (char*)text_Zone); strcat(sms_text, " ");
         //strcat(sms_text, (uint8_t)alert_message[7]+1); strcat_P(sms_text, (char*)text_spdashsp);
-        strcat(sms_text, conf.zone_name[alert_message[7]]); strcat_P(sms_text, (char*)text_space);
+        strcat(sms_text, conf.zone_name[alert_message[7]]); strcat(sms_text, " ");
         switch(alert_message[6]){
           case 'P': strcat_P(sms_text, (char*)text_trigger); strcat_P(sms_text, (char*)text_ed);
-            strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_alarm);
+            strcat(sms_text, " "); strcat_P(sms_text, (char*)text_alarm);
           break;
           case 'T': strcat_P(sms_text, (char*)text_tamper); strcat_P(sms_text, (char*)text_ed);
           break;
-          case 'O': strcat_P(sms_text, (char*)text_is); strcat_P(sms_text, (char*)text_space);
+          case 'O': strcat_P(sms_text, (char*)text_is); strcat(sms_text, " ");
             strcat_P(sms_text, (char*)text_open);
           break;
         }
       break;
       case 'A': // Authenticatn
         _group = ((conf.key_setting[alert_message[7]] >> 1) & B1111); // only specific group
-        strcat_P(sms_text, (char*)text_Authentication); strcat_P(sms_text, (char*)text_space);
-        strcat_P(sms_text, (char*)text_key); strcat_P(sms_text, (char*)text_space); 
-        if (alert_message[6] != 'U') { strcat(sms_text, conf.key_name[alert_message[7]]); strcat_P(sms_text, (char*)text_space); }
+        strcat_P(sms_text, (char*)text_Authentication); strcat(sms_text, " ");
+        strcat_P(sms_text, (char*)text_key); strcat(sms_text, " "); 
+        if (alert_message[6] != 'U') { strcat(sms_text, conf.key_name[alert_message[7]]); strcat(sms_text, " "); }
         switch(alert_message[6]){
           case 'U': strcat_P(sms_text, (char*)text_unk); 
           break;
-          case 'F': strcat_P(sms_text, (char*)text_is); strcat_P(sms_text, (char*)text_space);
+          case 'F': strcat_P(sms_text, (char*)text_is); strcat(sms_text, " ");
             strcat_P(sms_text, (char*)text_disabled);
           break;
         }
       break;    
       case 'G': // Groups
         _group = alert_message[7]; // only specific group
-        strcat_P(sms_text, (char*)text_Group); strcat_P(sms_text, (char*)text_space);
+        strcat_P(sms_text, (char*)text_Group); strcat(sms_text, " ");
         //server << (uint8_t)alert_message[7]+1; strcat_P(sms_text, (char*)text_spdashsp);
-        strcat(sms_text, conf.group_name[alert_message[7]]); strcat_P(sms_text, (char*)text_space);
+        strcat(sms_text, conf.group_name[alert_message[7]]); strcat(sms_text, " ");
         switch(alert_message[6]){
-          case 'D': strcat_P(sms_text, (char*)text_is); strcat_P(sms_text, (char*)text_space);
+          case 'D': strcat_P(sms_text, (char*)text_is); strcat(sms_text, " ");
             strcat_P(sms_text, (char*)text_disarmed);
           break;
-          case 'A': strcat_P(sms_text, (char*)text_is); strcat_P(sms_text, (char*)text_space);
-            strcat_P(sms_text, (char*)text_auto); strcat_P(sms_text, (char*)text_space);
+          case 'A': strcat_P(sms_text, (char*)text_is); strcat(sms_text, " ");
+            strcat_P(sms_text, (char*)text_auto); strcat(sms_text, " ");
             strcat_P(sms_text, (char*)text_armed);
           break;
-          case 'S': strcat_P(sms_text, (char*)text_is); strcat_P(sms_text, (char*)text_space);
+          case 'S': strcat_P(sms_text, (char*)text_is); strcat(sms_text, " ");
             strcat_P(sms_text, (char*)text_armed);
           break;
           default : strcat_P(sms_text, (char*)text_unk); break;
@@ -1766,16 +1766,16 @@ NIL_THREAD(AlertThread, arg) {
           case 'R' : strcat_P(sms_text, (char*)text_Registration); break;
           default : strcat_P(sms_text, (char*)text_unk); break;
         }
-        strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_queue);
-        strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_is);
-        strcat_P(sms_text, (char*)text_space); strcat_P(sms_text, (char*)text_full);
+        strcat(sms_text, " "); strcat_P(sms_text, (char*)text_queue);
+        strcat(sms_text, " "); strcat_P(sms_text, (char*)text_is);
+        strcat(sms_text, " "); strcat_P(sms_text, (char*)text_full);
       break;
       case 'R': // Trigger
         _group = ((trigger[alert_message[7]].setting >> 1) & B1111); // only specific group
-        strcat_P(sms_text, (char*)text_Trigger); strcat_P(sms_text, (char*)text_space);
-        //strcat_P(sms_text, (char*)text_number); strcat_P(sms_text, (char*)text_space);
-        //server << (uint8_t)alert_message[6]+1; strcat_P(sms_text, (char*)text_space);
-        strcat(sms_text, trigger[alert_message[7]].name); strcat_P(sms_text, (char*)text_space);
+        strcat_P(sms_text, (char*)text_Trigger); strcat(sms_text, " ");
+        //strcat_P(sms_text, (char*)text_number); strcat(sms_text, " ");
+        //server << (uint8_t)alert_message[6]+1; strcat(sms_text, " ");
+        strcat(sms_text, trigger[alert_message[7]].name); strcat(sms_text, " ");
         strcat_P(sms_text, (char*)text_activated);
         switch(alert_message[6]){
           case 'A' : strcat_P(sms_text, (char*)text_activated); break;
@@ -1784,7 +1784,7 @@ NIL_THREAD(AlertThread, arg) {
         } 
       break;
     }
-    strcat_P(sms_text, (char*)text_dot);
+    strcat(sms_text, ".");
 
     WS.println(sms_text);
 
@@ -1812,10 +1812,10 @@ NIL_THREAD(AlertThread, arg) {
       _smtp_go = 1;
       WS.print(F("Email "));
       // Add timestamp to email
-      strcat_P(sms_text, (char*)text_space); 
+      strcat(sms_text, " "); 
       l.b[0] = alert_message[0]; l.b[1] = alert_message[1]; l.b[2] = alert_message[2]; l.b[3] = alert_message[3];
       time_temp.set(l.lval);
-      strcat(sms_text, (char*)time_temp.formatedDateTime()); strcat_P(sms_text, (char*)text_dot);
+      strcat(sms_text, (char*)time_temp.formatedDateTime()); strcat(sms_text, ".");
       // Send Email
       nilSemWait(&ETHSem);    // wait for slot
       SMTPethClient.connect("mail.smtp2go.com", 2525);
@@ -1883,7 +1883,7 @@ NIL_THREAD(AlertThread, arg) {
         if ((conf.tel[i] & B1) && ((((_group == conf.tel[i] >> 1) & B1111)) || (conf.tel[i] >> 5 & B1))) { 
           // Prepare ATD+ command
           sms_text[0] = 0;
-          strcat(sms_text, AT_D); strcat(sms_text, conf.tel_num[i]); strcat_P(sms_text, (char*)text_semic);
+          strcat(sms_text, AT_D); strcat(sms_text, conf.tel_num[i]); strcat(sms_text, ":");
           nilSemWait(&GSMSem);    // wait for slot
           _status = Serial.ATsendCmd(sms_text); 
           WS.print(F("Page begin: ")); WS.println(_status);

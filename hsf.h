@@ -5,11 +5,11 @@
 // W E B   P A G E S              W E B   P A G E S                W E B   P A G E S  
 // *********************************************************************************
 
-const char PGM_Last[] PROGMEM = "Last";
-const char PGM_First[] PROGMEM = "First";
+const char PGM_Last[]   PROGMEM = "Last";
+const char PGM_First[]  PROGMEM = "First";
 const char PGM_Second[] PROGMEM = "Second";
-const char PGM_Third[] PROGMEM = "Third";
-const char PGM_Four[] PROGMEM = "Fourth";
+const char PGM_Third[]  PROGMEM = "Third";
+const char PGM_Four[]   PROGMEM = "Fourth";
 const char* const PGM_week[] PROGMEM = {
   PGM_Last,
   PGM_First,
@@ -18,13 +18,13 @@ const char* const PGM_week[] PROGMEM = {
   PGM_Four
   };
 
-const char PGM_Sunday[] PROGMEM = "Sunday";
-const char PGM_Monday[] PROGMEM = "Monday";
-const char PGM_Tuesday[] PROGMEM = "Tuesday";
+const char PGM_Sunday[]    PROGMEM = "Sunday";
+const char PGM_Monday[]    PROGMEM = "Monday";
+const char PGM_Tuesday[]   PROGMEM = "Tuesday";
 const char PGM_Wednesday[] PROGMEM = "Wednesday";
-const char PGM_Thursday[] PROGMEM = "Thursday";
-const char PGM_Friday[] PROGMEM = "Friday";
-const char PGM_Saturday[] PROGMEM = "Saturday";
+const char PGM_Thursday[]  PROGMEM = "Thursday";
+const char PGM_Friday[]    PROGMEM = "Friday";
+const char PGM_Saturday[]  PROGMEM = "Saturday";
 const char* const PGM_dow[] PROGMEM = {
   PGM_Sunday,
   PGM_Monday,

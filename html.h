@@ -88,7 +88,6 @@ P(text_unk)    = "unknown";
 P(text_Zone)   = "Zone";
 P(text_Type)   = "Type";
 P(text_Function) = "Function";
-P(text_s)      = "s";
 P(text_Group)  = "Group";
 P(text_group)  = "group";
 P(text_Phone)  = "Phone";
@@ -142,12 +141,14 @@ P(text_seconds)    = "second(s)";
 P(text_minutes)    = "minute(s)";
 P(text_hours)  = "hour(s)";
 P(text_days)   = "day(s)";
+/*
 P(text_space)  = " ";
 P(text_colon)  = ":";
 P(text_semic)  = ";";
 P(text_dot)    = ".";
 P(text_percent)  = "%";
 P(text_comma)    = ",";
+*/
 P(text_cosp)    = ", ";
 P(text_sesp)   = ": ";
 P(text_spdashsp) = " - ";
