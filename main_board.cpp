@@ -1634,10 +1634,13 @@ int16_t readStatus() {
   return strtol(line, NULL, 10);
 }
 
-void smtp_escape() {
+void smtp_escape(uint8_t _state) {
   SMTPethClient.stop();
   nilSemSignal(&ETHSem);  // Exit region.
   WS.println(F("Email End"));
+  if (!_state) {
+    _tmp[0] = 'T'; _tmp[1] = 'E'; _tmp[2] = _state;  pushToLog(_tmp, 3); // 
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -1819,28 +1822,28 @@ NIL_THREAD(AlertThread, arg) {
       // Send Email
       nilSemWait(&ETHSem);    // wait for slot
       SMTPethClient.connect("mail.smtp2go.com", 2525);
-      if (readStatus() != 220 ) { smtp_escape(); _smtp_go = 0; }
+      if (readStatus() != 220 ) { smtp_escape(1); _smtp_go = 0; }
       if (_smtp_go) { 
         SMTPethClient.println(F("EHLO"));
-        if (readStatus() != 250 ) { smtp_escape(); _smtp_go = 0; }
+        if (readStatus() != 250 ) { smtp_escape(2); _smtp_go = 0; }
       }
       if (_smtp_go) {
         SMTPethClient.println(F("auth login"));
-        if (readStatus() != 334 ) { smtp_escape(); _smtp_go = 0; }
+        if (readStatus() != 334 ) { smtp_escape(3); _smtp_go = 0; }
       }
       if (_smtp_go) { 
         b64_text[0] = 0; base64_encode(b64_text, conf.SMTP_user, strlen(conf.SMTP_user));
         SMTPethClient.println(b64_text);
-        if (readStatus() != 334 ) { smtp_escape(); _smtp_go = 0; }
+        if (readStatus() != 334 ) { smtp_escape(4); _smtp_go = 0; }
       }
       if (_smtp_go) { 
         b64_text[0] = 0; base64_encode(b64_text, conf.SMTP_password, strlen(conf.SMTP_password));
         SMTPethClient.println(b64_text);
-        if (readStatus() != 235 ) { smtp_escape(); _smtp_go = 0; }
+        if (readStatus() != 235 ) { smtp_escape(5); _smtp_go = 0; }
       }
       if (_smtp_go) { 
         SMTPethClient.print(F("MAIL FROM:<")); SMTPethClient.print(conf.SMTP_user); SMTPethClient.println(F(">"));
-        if (readStatus() != 250 ) { smtp_escape(); _smtp_go = 0; }
+        if (readStatus() != 250 ) { smtp_escape(6); _smtp_go = 0; }
       }
       for (uint8_t i = 0; i < NUM_OF_PHONES; ++i) {
         //  phone enabled              specific group                       or global tel.
@@ -1848,13 +1851,13 @@ NIL_THREAD(AlertThread, arg) {
           if (_smtp_go) { 
             SMTPethClient.print(F("RCPT TO:<")); SMTPethClient.print(conf.email[i]); SMTPethClient.println(F(">"));
             // OK status is 25*
-            if ((readStatus()/10) != 25 ) { smtp_escape(); _smtp_go = 0; }
+            if ((readStatus()/10) != 25 ) { smtp_escape(7); _smtp_go = 0; }
           }
         }
       }    
       if (_smtp_go) {   
         SMTPethClient.println(F("DATA"));
-        if (readStatus() != 354 ) { smtp_escape(); _smtp_go = 0; }
+        if (readStatus() != 354 ) { smtp_escape(8); _smtp_go = 0; }
       }
       if (_smtp_go) { 
         SMTPethClient.print(F("From: ")); SMTPethClient.println(conf.SMTP_user);
@@ -1868,11 +1871,11 @@ NIL_THREAD(AlertThread, arg) {
         SMTPethClient.println();
         SMTPethClient.print(F("Subject: ")); SMTPethClient.println(sms_text);
         SMTPethClient.println(); SMTPethClient.println(F("."));
-        if (readStatus() != 250 ) { smtp_escape(); _smtp_go = 0; }
+        if (readStatus() != 250 ) { smtp_escape(9); _smtp_go = 0; }
       }
       if (_smtp_go) {
         WS.println(F("OK"));
-        smtp_escape();
+        smtp_escape(0);
       }
     }
 

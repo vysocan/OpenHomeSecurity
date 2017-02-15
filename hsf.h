@@ -623,6 +623,19 @@ void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tai
               default : server.printP(text_unk); break;
             }
           break;
+          case 'T': // Alert
+            switch(value[6]){
+              case 'E' : server.printP(text_Email); break;
+              default : server.printP(text_unk); break;
+            }
+            server.print(' ');
+            switch(value[7]){
+              case 1 ... 2 : server.printP(text_connection); break;
+              case 3 ... 5 : server.printP(text_login); break;
+              default : server.printP(text_send); break;
+            }
+            server.print(' '); server.printP(text_failed); server.print('.');
+          break;
           default:
             for (uint8_t i = 5; i < EEPROM_MESSAGE; ++i) {server << value[i];}
           break;

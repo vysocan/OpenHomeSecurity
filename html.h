@@ -172,6 +172,8 @@ P(text_client_id)  = "client ID";
 P(text_unavailable)     = "unavailable";
 P(text_credentials) = "credentials";
 P(text_unauthorized)    = "unauthorized";
+P(text_login) = "login";
+P(text_send) = "send";
 P(text_registered) = "registered";
 P(text_registration) = "registration";
 P(text_Registration) = "Registration";
@@ -320,10 +322,9 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 "html, body {height:100%}\n"
 "body {font: 12px/1 Georgia, sans-serif;color: #333;background: #333;overflow-x: hidden}\n"
 ".wrp {display:flex;min-height:100%}\n"
-".sbar {position:absolute;width:160px}\n"
-".content {flex:1;padding:10px 10px 1px 20px;;background:#eee;box-shadow:0 0 5px black;transform: translate3d(0,0,0);transition:transform .3s}\n"
-".content.isOpen {transform: translate3d(160px,0,0)}\n"
-".title {font-size:22px;line-height:50px;text-align:center;color:#eee;border-bottom:1px solid #222;background:#2a2a2a}\n"
+".sb {position:absolute;width:160px}\n"
+".mb {flex:1;padding:10px 10px 1px 20px;;background:#eee;box-shadow:0 0 5px black;transform: translate3d(160px,0,0)}\n"
+".tt {font-size:22px;line-height:50px;text-align:center;color:#eee;border-bottom:1px solid #222;background:#2a2a2a}\n"
 ".nav li a {position:relative;display:block;padding:15px 15px 15px 50px;color:#eee;border-bottom:1px solid #222}\n"
 ".nav li a:before {font:14px fontawesome;position:absolute;top:14px;left:20px}\n"
 ".nav li:nth-child(1) a:before {content:'\\f015'}"
@@ -359,11 +360,11 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 ".rc label:hover {background:#eee}\n"
 ".rc input:checked ~ label {color:#fff;background:#5b5}\n"
 "</style></head>\n<body>"
-"<div class='wrp'><div class='sbar'><div class='title'>OHS v.1.7.5</div><ul class='nav'>";
+"<div class='wrp'><div class='sb'><div class='tt'>OHS v.1.7.5</div><ul class='nav'>";
 
-P(htmlHead_e) = "</ul></div><div class='content isOpen'>";
+P(htmlHead_e) = "</ul></div><div class='mb'>";
 
-P(htmlFoot) = "</div></div></body></html>";	
+P(htmlFoot) = "</div></div></body></html>";
 
 P(html_li_a)          = "<li><a ";
 P(html_li_e)          = "</a></li>";
