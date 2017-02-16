@@ -628,13 +628,15 @@ void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tai
               case 'E' : server.printP(text_Email); break;
               default : server.printP(text_unk); break;
             }
-            server.print(' ');
+            server.print(' '); server.printP(text_failed); server.printP(text_sesp);
             switch(value[7]){
               case 1 ... 2 : server.printP(text_connection); break;
               case 3 ... 5 : server.printP(text_login); break;
-              default : server.printP(text_send); break;
+              case 6 : server.printP(text_From); server.print(' '); server.printP(text_address);break;
+              case 7 : server.printP(text_To); server.print(' '); server.printP(text_address);break;
+              default : server.printP(text_body); break;
             }
-            server.print(' '); server.printP(text_failed); server.print('.');
+            server.print(' '); server.printP(text_rejected);
           break;
           default:
             for (uint8_t i = 5; i < EEPROM_MESSAGE; ++i) {server << value[i];}

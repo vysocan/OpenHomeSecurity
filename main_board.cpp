@@ -1638,7 +1638,7 @@ void smtp_escape(uint8_t _state) {
   SMTPethClient.stop();
   nilSemSignal(&ETHSem);  // Exit region.
   WS.println(F("Email End"));
-  if (!_state) {
+  if (_state > 0) {
     _tmp[0] = 'T'; _tmp[1] = 'E'; _tmp[2] = _state;  pushToLog(_tmp, 3); // 
   }
 }
@@ -2538,6 +2538,7 @@ NIL_THREAD(DebugThread, arg) {
   // TWI 
   Wire.begin(); Wire.speed(I2C_400KHZ);
 
+  //Ethernet.init(1);
   // Ethernet
   if (conf.version != VERSION) {
     Ethernet.begin(mac); // DHCP

@@ -120,6 +120,9 @@ P(text_Digital)= "Digital";
 P(text_auto)   = "auto";
 P(text_Auto)   = "Auto";
 P(text_To)     = "To";
+P(text_From)     = "From";
+P(text_body)     = "body";
+P(text_rejected)     = "rejected";
 P(text_GSM)    = "GSM";
 P(text_SMS)    = "SMS";
 P(text_Debug)  = "Debug";
@@ -363,8 +366,7 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 "<div class='wrp'><div class='sb'><div class='tt'>OHS v.1.7.5</div><ul class='nav'>";
 
 P(htmlHead_e) = "</ul></div><div class='mb'>";
-
-P(htmlFoot) = "</div></div></body></html>";
+P(htmlFoot)   = "</div></div></body></html>";
 
 P(html_li_a)          = "<li><a ";
 P(html_li_e)          = "</a></li>";
