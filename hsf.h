@@ -89,11 +89,11 @@ void print_node_function(WebServer &server, char _function) {
   }
 }
 
-void select_group(WebServer &server, uint16_t setting) {
-  server.printP(html_select); server << 'g'; server.printP(html_e_tag);
+void select_group(WebServer &server, uint8_t _setting, char _name = 'g') {
+  server.printP(html_select); server.print(_name); server.printP(html_e_tag);
   for (uint8_t ii = 0; ii < ALR_GROUPS; ++ii) {
     server.printP(html_option); server << ii;
-    if ((setting >> 1 & B1111) == ii) { server.printP(html_selected); }
+    if ((_setting & B1111) == ii) { server.printP(html_selected); }
     else                              { server.printP(html_e_tag); }
     server << ii + 1; server.printP(text_spdashsp); server << conf.group_name[ii]; server.printP(text_spdashsp);
     (conf.group[ii] & B1) ? server.printP(text_On) : server.printP(text_Off); server.printP(html_e_option);
@@ -808,7 +808,7 @@ void webSetZone(WebServer &server, WebServer::ConnectionType type, char *url_tai
         server.radioButton2("d", 3, text_3, ((conf.zone[webZone] >> 6 & B1) & (conf.zone[webZone] >> 5 & B1)));
         server.printP(html_div_e); server.print(' '); server.printP(text_x); server << conf.alr_time; server.print(' '); server.printP(text_seconds); server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Group); server.printP(html_e_td_td);
-        select_group(server, conf.zone[webZone]);
+        select_group(server, conf.zone[webZone] >> 1);
         server.printP(html_e_td_e_tr);
         server.printP(html_e_table);
           
@@ -845,6 +845,28 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
             else                 conf.group[webGroup] |=  (1 << (name[0]-48));
             group[webGroup].setting &= ~(1 << 7);  // Clear disable group log bit
           break;
+          case 'a': // group
+            n = strtol(value, NULL, 10);
+            if ((n >> 0) & 1) conf.group[webGroup] |= (1 << 8);
+            else conf.group[webGroup] &= ~(1 << 8);
+            if ((n >> 1) & 1) conf.group[webGroup] |= (1 << 9);
+            else conf.group[webGroup] &= ~(1 << 9);
+            if ((n >> 2) & 1) conf.group[webGroup] |= (1 << 10);
+            else conf.group[webGroup] &= ~(1 << 20);
+            if ((n >> 3) & 1) conf.group[webGroup] |= (1 << 11);
+            else conf.group[webGroup] &= ~(1 << 11);
+          break;
+          case 'd': // group
+            n = strtol(value, NULL, 10);
+            if ((n >> 0) & 1) conf.group[webGroup] |= (1 << 12);
+            else conf.group[webGroup] &= ~(1 << 12);
+            if ((n >> 1) & 1) conf.group[webGroup] |= (1 << 13);
+            else conf.group[webGroup] &= ~(1 << 13);
+            if ((n >> 2) & 1) conf.group[webGroup] |= (1 << 14);
+            else conf.group[webGroup] &= ~(1 << 14);
+            if ((n >> 3) & 1) conf.group[webGroup] |= (1 << 15);
+            else conf.group[webGroup] &= ~(1 << 15);
+          break;
           case 'e': saveConf(); break; // save to EEPROM         
           }
         } while (repeat);
@@ -856,8 +878,10 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
       server.printP(html_table_tr_th_hash); server.printP(text_Name); 
       server.printP(html_e_th_th); server.printP(text_On);
       server.printP(html_e_th_th); server.printP(text_Armed);
-      server.printP(html_e_th_th); server.printP(text_Authentication);
+      //server.printP(html_e_th_th); server.printP(text_Authentication);
       server.printP(html_e_th_th); server.printP(text_Delay);
+      server.printP(html_e_th_th); server.printP(text_Arm);
+      server.printP(html_e_th_th); server.printP(text_Disarm);
       server.printP(html_e_th_th); server.printP(text_i_zone); server.print(' '); server.printP(text_Zone); server.print('s');
       server.printP(html_e_th_th); server.printP(text_i_auth); server.print(' ');server.printP(text_Authentication); //server.print(' '); server.printP(text_node); server.print('s');
       server.printP(html_e_th_th); server.printP(text_i_sens); server.print(' ');server.printP(text_Sensor); server.print('s');
@@ -872,8 +896,16 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
         server << conf.group_name[i]; server.printP(html_e_td_td);
         (conf.group[i] & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
         (group[i].setting & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
-        ((group[i].setting >> 2) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
+        //((group[i].setting >> 2) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
         server << group[i].arm_delay/4; server.print(' '); server.printP(text_seconds); server.printP(html_e_td_td);
+        if (((conf.group[i] >> 8) & B1111) != i) {
+          server << ((conf.group[i] >> 8) & B1111) + 1; server.printP(text_spdashsp); server << conf.group_name[((conf.group[i] >> 8) & B1111)];
+        } else { server.printP(text_spdashsp); }
+        server.printP(html_e_td_td);
+        if (((conf.group[i] >> 12) & B1111) != i) {
+          server << ((conf.group[i] >> 12) & B1111) + 1; server.printP(text_spdashsp); server << conf.group_name[((conf.group[i] >> 12) & B1111)];
+        } else { server.printP(text_spdashsp); }
+        server.printP(html_e_td_td);
         n = 0;
         for (uint8_t ii = 0; ii < ALR_ZONES; ++ii) {
           if ((((conf.zone[ii] >> 1) & B1111) == i) && (conf.zone[ii] & B1)) {
@@ -926,8 +958,6 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
       }
       server.printP(html_e_table); 
       server.printP(html_form_s); server << PREFIX "/g"; server.printP(html_form_e);
-      
-      
       server.printP(html_table_tr_td);
       server.printP(text_Group); server.printP(html_e_td_td);
       server.printP(html_select_submit); server << 'G'; server.printP(html_e_tag);
@@ -944,29 +974,25 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
       server.printP(html_s_tag); server << 'n'; server.printP(html_m_tag); server << conf.group_name[webGroup]; server.printP(html_e_tag);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Group); server.print(' '); server.printP(text_is); server.printP(html_e_td_td);
-      
-      
       print_OnOffbutton(server, "0", conf.group[webGroup] & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Alarm); server.print(' '); server.printP(text_trigger); server << "s "; server.printP(text_OUT1); server.printP(html_e_td_td);
-      
-      
       print_OnOffbutton(server, "4", conf.group[webGroup] >> 4 & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Alarm); server.print(' '); server.printP(text_trigger); server << "s "; server.printP(text_OUT2); server.printP(html_e_td_td);
-      
-      
       print_OnOffbutton(server, "3", conf.group[webGroup] >> 3 & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Tamper); server.print(' '); server.printP(text_trigger); server << "s "; server.printP(text_OUT1); server.printP(html_e_td_td);
-      
-      
       print_OnOffbutton(server, "2", conf.group[webGroup] >> 2 & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Tamper); server.print(' '); server.printP(text_trigger); server << "s "; server.printP(text_OUT2); server.printP(html_e_td_td);
-      
-      
       print_OnOffbutton(server, "1", conf.group[webGroup] >> 1 & B1);
+      server.printP(html_e_td_e_tr_tr_td);
+      server.printP(text_Arm); server.print(' '); server.printP(text_Group); server.printP(html_e_td_td);
+      select_group(server, conf.group[webGroup] >> 8, 'a');
+      server.printP(html_e_td_e_tr_tr_td);
+      server.printP(text_Disarm); server.print(' '); server.printP(text_Group); server.printP(html_e_td_td);
+      select_group(server, conf.group[webGroup] >> 12, 'd');
       server.printP(html_e_td_e_tr);
       server.printP(html_e_table);
           
@@ -1084,7 +1110,7 @@ void webSetKey(WebServer &server, WebServer::ConnectionType type, char *url_tail
       print_OnOffbutton(server, "5", conf.key_setting[webKey] >> 5 & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Group); server.printP(html_e_td_td);
-      select_group(server, conf.key_setting[webKey]); server.printP(html_e_td_e_tr_tr_td);
+      select_group(server, conf.key_setting[webKey] >> 1); server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Last); server.print(' '); server.printP(text_key); server.printP(html_e_td_td);
       formatKey(last_key, value); server << value;
       server.printP(html_e_td_e_tr);
@@ -1204,7 +1230,7 @@ void webSetPhone(WebServer &server, WebServer::ConnectionType type, char *url_ta
         print_OnOffbutton(server, "5", conf.tel[webTel] >> 5 & B1);
         server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Group); server.printP(html_e_td_td);
-        select_group(server, conf.tel[webTel]);
+        select_group(server, conf.tel[webTel] >> 1);
         server.printP(html_e_td_e_tr);
         server.printP(html_e_table);
             
@@ -1366,7 +1392,7 @@ void webSetSens(WebServer &server, WebServer::ConnectionType type, char *url_tai
       print_OnOffbutton(server, "7", (node[webSens].setting >> 7) & B1);
       server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Group); server.printP(html_e_td_td);
-      select_group(server, node[webSens].setting);
+      select_group(server, node[webSens].setting >> 1);
       server.printP(html_e_td_e_tr);
       server.printP(html_e_table);
           
@@ -1484,7 +1510,7 @@ void webSetMQTT(WebServer &server, WebServer::ConnectionType type, char *url_tai
         default: server.printP(text_i_question); break;
       }
       server.printP(html_e_td_e_tr_tr_td);
-      server.printP(text_MQTT); server.print(' '); server.printP(text_publish); server.printP(html_e_td_td);
+      server.printP(text_Sensor); server.print(' '); server.printP(text_MQTT); server.print(' '); server.printP(text_publish); server.printP(html_e_td_td);
       print_OnOffbutton(server, "0", (conf.mqtt >> 0) & B1);
       server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Sensor); server.print(' '); server.printP(text_MQTT); server.print(' '); server.printP(text_subscribe); server.printP(html_e_td_td);
@@ -2167,95 +2193,95 @@ void webSetGlobal(WebServer &server, WebServer::ConnectionType type, char *url_t
       server.printP(text_Page); server.printP(html_e_th_e_tr);
       server.printP(html_tr_td);
       server.printP(text_Undefined); server.print(' '); server.printP(text_key); server.printP(html_e_td_td);
-      print_OnOffbutton(server, "0A", conf.alerts[alert_SMS] & B1);
+      print_OnOffbutton(server, "0A", conf.alerts[alert_SMS] >> ALERT_FALSE_KEY & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "1A", conf.alerts[alert_email] & B1);
+      print_OnOffbutton(server, "1A", conf.alerts[alert_email] >> ALERT_FALSE_KEY & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "2A", conf.alerts[alert_page] & B1);
+      print_OnOffbutton(server, "2A", conf.alerts[alert_page] >> ALERT_FALSE_KEY & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Group); server.print(' '); server.printP(text_disarmed); server.printP(html_e_td_td);
-      print_OnOffbutton(server, "0B", conf.alerts[alert_SMS] >> 1 & B1);
+      print_OnOffbutton(server, "0B", conf.alerts[alert_SMS] >> ALERT_DISARMED & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "1B", conf.alerts[alert_email] >> 1 & B1);
+      print_OnOffbutton(server, "1B", conf.alerts[alert_email] >> ALERT_DISARMED & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "2B", conf.alerts[alert_page] >> 1 & B1);
+      print_OnOffbutton(server, "2B", conf.alerts[alert_page] >> ALERT_DISARMED & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Group); server.print(' '); server.printP(text_armed); server.printP(html_e_td_td);
-      print_OnOffbutton(server, "0C", conf.alerts[alert_SMS] >> 2 & B1);
+      print_OnOffbutton(server, "0C", conf.alerts[alert_SMS] >> ALERT_ARMED & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "1C", conf.alerts[alert_email] >> 2 & B1);
+      print_OnOffbutton(server, "1C", conf.alerts[alert_email] >> ALERT_ARMED & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "2C", conf.alerts[alert_page] >> 2 & B1);
+      print_OnOffbutton(server, "2C", conf.alerts[alert_page] >> ALERT_ARMED & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Zone); server.print(' '); server.printP(text_open); server.print(' '); server.printP(text_alarm); server.printP(html_e_td_td);
-      print_OnOffbutton(server, "0D", conf.alerts[alert_SMS] >> 3 & B1);
+      print_OnOffbutton(server, "0D", conf.alerts[alert_SMS] >> ALERT_OPEN & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "1D", conf.alerts[alert_email] >> 3 & B1);
+      print_OnOffbutton(server, "1D", conf.alerts[alert_email] >> ALERT_OPEN & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "2D", conf.alerts[alert_page] >> 3 & B1);
+      print_OnOffbutton(server, "2D", conf.alerts[alert_page] >> ALERT_OPEN & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Zone); server.print(' '); server.printP(text_tamper); server.print(' '); server.printP(text_alarm); server.printP(html_e_td_td);
-      print_OnOffbutton(server, "0E", conf.alerts[alert_SMS] >> 4 & B1);
+      print_OnOffbutton(server, "0E", conf.alerts[alert_SMS] >> ALERT_TAMPER & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "1E", conf.alerts[alert_email] >> 4 & B1);
+      print_OnOffbutton(server, "1E", conf.alerts[alert_email] >> ALERT_TAMPER & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "2E", conf.alerts[alert_page] >> 4 & B1);
+      print_OnOffbutton(server, "2E", conf.alerts[alert_page] >> ALERT_TAMPER & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Zone); server.print(' '); server.printP(text_alarm); server.printP(html_e_td_td);
-      print_OnOffbutton(server, "0F", conf.alerts[alert_SMS] >> 5 & B1);
+      print_OnOffbutton(server, "0F", conf.alerts[alert_SMS] >> ALERT_PIR & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "1F", conf.alerts[alert_email] >> 5 & B1);
+      print_OnOffbutton(server, "1F", conf.alerts[alert_email] >> ALERT_PIR & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "2F", conf.alerts[alert_page] >> 5 & B1);
+      print_OnOffbutton(server, "2F", conf.alerts[alert_page] >> ALERT_PIR & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_System); server.print(' '); server.printP(text_alarm); server.printP(html_e_td_td);
-      print_OnOffbutton(server, "0G", conf.alerts[alert_SMS] >> 6 & B1);
+      print_OnOffbutton(server, "0G", conf.alerts[alert_SMS] >> ALERT_ALARM & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "1G", conf.alerts[alert_email] >> 6 & B1);
+      print_OnOffbutton(server, "1G", conf.alerts[alert_email] >> ALERT_ALARM & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "2G", conf.alerts[alert_page] >> 6 & B1);
+      print_OnOffbutton(server, "2G", conf.alerts[alert_page] >> ALERT_ALARM & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Monitoring); server.print(' '); server.printP(text_started); server.printP(html_e_td_td);
-      print_OnOffbutton(server, "0H", conf.alerts[alert_SMS] >> 7 & B1);
+      print_OnOffbutton(server, "0H", conf.alerts[alert_SMS] >> ALERT_MONITORING_STARTED & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "1H", conf.alerts[alert_email] >> 7 & B1);
+      print_OnOffbutton(server, "1H", conf.alerts[alert_email] >> ALERT_MONITORING_STARTED & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "2H", conf.alerts[alert_page] >> 7 & B1);
+      print_OnOffbutton(server, "2H", conf.alerts[alert_page] >> ALERT_MONITORING_STARTED & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Queue); server.print(' '); server.printP(text_full); server.printP(html_e_td_td);
-      print_OnOffbutton(server, "0I", conf.alerts[alert_SMS] >> 8 & B1);
+      print_OnOffbutton(server, "0I", conf.alerts[alert_SMS] >> ALERT_FIFO & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "1I", conf.alerts[alert_email] >> 8 & B1);
+      print_OnOffbutton(server, "1I", conf.alerts[alert_email] >> ALERT_FIFO & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "2I", conf.alerts[alert_page] >> 8 & B1);
+      print_OnOffbutton(server, "2I", conf.alerts[alert_page] >> ALERT_FIFO & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Configuration); server.print(' '); server.printP(text_saved); server.printP(html_e_td_td);
-      print_OnOffbutton(server, "0J", conf.alerts[alert_SMS] >> 9 & B1);
+      print_OnOffbutton(server, "0J", conf.alerts[alert_SMS] >> ALERT_CONF_SAVED & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "1J", conf.alerts[alert_email] >> 9 & B1);
+      print_OnOffbutton(server, "1J", conf.alerts[alert_email] >> ALERT_CONF_SAVED & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "2J", conf.alerts[alert_page] >> 9 & B1);
+      print_OnOffbutton(server, "2J", conf.alerts[alert_page] >> ALERT_CONF_SAVED & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Power); server.print(' '); server.printP(text_state); server.printP(html_e_td_td);
-      print_OnOffbutton(server, "0K", conf.alerts[alert_SMS] >> 10 & B1);
+      print_OnOffbutton(server, "0K", conf.alerts[alert_SMS] >> ALERT_AC_STATE & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "1K", conf.alerts[alert_email] >> 10 & B1);
+      print_OnOffbutton(server, "1K", conf.alerts[alert_email] >> ALERT_AC_STATE & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "2K", conf.alerts[alert_page] >> 10 & B1);
+      print_OnOffbutton(server, "2K", conf.alerts[alert_page] >> ALERT_AC_STATE & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Battery); server.print(' '); server.printP(text_state); server.printP(html_e_td_td);
-      print_OnOffbutton(server, "0L", conf.alerts[alert_SMS] >> 11 & B1);
+      print_OnOffbutton(server, "0L", conf.alerts[alert_SMS] >> ALERT_BATERY_STATE & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "1L", conf.alerts[alert_email] >> 11 & B1);
+      print_OnOffbutton(server, "1L", conf.alerts[alert_email] >> ALERT_BATERY_STATE & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "2L", conf.alerts[alert_page] >> 11 & B1);
+      print_OnOffbutton(server, "2L", conf.alerts[alert_page] >> ALERT_BATERY_STATE & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Trigger); server.print(' '); server.printP(text_alarm); server.printP(html_e_td_td);
-      print_OnOffbutton(server, "0M", conf.alerts[alert_SMS] >> 12 & B1);
+      print_OnOffbutton(server, "0M", conf.alerts[alert_SMS] >> ALERT_TRIGGER & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "1M", conf.alerts[alert_email] >> 12 & B1);
+      print_OnOffbutton(server, "1M", conf.alerts[alert_email] >> ALERT_TRIGGER & B1);
       server.printP(html_e_td_td);
-      print_OnOffbutton(server, "2M", conf.alerts[alert_page] >> 12 & B1);
+      print_OnOffbutton(server, "2M", conf.alerts[alert_page] >> ALERT_TRIGGER & B1);
       server.printP(html_e_td_e_tr);
       server.printP(html_e_table);
       server.printP(html_F_A); // submit Apply

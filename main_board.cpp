@@ -85,7 +85,7 @@ EthernetClient SMTPethClient;
 #define RADIO_ACK_TIME    5     // # of LOOPS to wait for an ack
 #define RADIO_RETRY       5     // # of retry 
 #define ENABLE_ATC              // comment out this line to disable AUTO TRANSMISSION CONTROL
-#define RADIO_UNIT_OFFSET 15    // Radio nodes start at address 17, since they share addresses with wired nodes 
+#define RADIO_UNIT_OFFSET 15    // Radio nodes start at local address 17, since they share local addresses with wired nodes 
 //#define ATC_RSSI          -20
 #ifdef ENABLE_ATC
   RFM69_ATC radio;
@@ -118,7 +118,8 @@ RS485_msg RX_msg, TX_msg;
 #include <avr/eeprom.h>
 
 #include <NilGSM.h>
-#define Serial GSM  // redefine GSM as standard Serial 0
+//#define Serial GSM  // redefine GSM as standard Serial 0
+
 char sms_text[60];
 
 // NilRTOS FIFO
@@ -1016,7 +1017,7 @@ void process_triggers(uint8_t _address, char _type, uint8_t _number, float _valu
   } // for (trigger)
 }
 
-void formatKey(char* in, char* out) { // Format the key to nice HEX string
+void formatKey(char* in, char* out) { // Format the key value to nice HEX string
   for (uint8_t ii = 0; ii < KEY_LEN; ++ii) { 
     out[ii*2]   = in[ii] >> 4 & B1111;
     out[ii*2+1] = in[ii] & B1111;
@@ -1043,7 +1044,7 @@ NIL_THREAD(ZoneThread, arg) {
   uint8_t _group = 255;
   uint8_t _resp;
   
-  nilThdSleepSeconds(SECS_PER_MIN); // Delay to allow PIR nodes to settle up
+  nilThdSleepSeconds(SECS_PER_MIN); // Delay to allow PIR to settle up
   pushToLog("SS");
   #ifdef WEB_DEBUGGING
   WS.println(F("Zone thread started"));
@@ -1656,10 +1657,10 @@ NIL_THREAD(AlertThread, arg) {
 
   // Initialize GSM modem
   nilSemWait(&GSMSem);    // wait for slot
-  GSMisAlive = Serial.ATsendCmd(AT_is_alive);
-  if (GSMisAlive) {
-    //GSMsetSMS = Serial.ATsendCmd(AT_CLIP_ON); 
-    GSMsetSMS = Serial.ATsendCmd(AT_set_sms_to_text);
+  GSMisAlive = GSM.ATsendCmd(AT_is_alive);
+  if (GSMisAlive == 1) {
+    //GSMsetSMS = GSM.ATsendCmd(AT_CLIP_ON); 
+    GSMsetSMS = GSM.ATsendCmd(AT_set_sms_to_text);
   }
   nilSemSignal(&GSMSem);  // Exit region.
  
@@ -1797,13 +1798,13 @@ NIL_THREAD(AlertThread, arg) {
         //  phone enabled              specific group                       or global tel.
         if ((conf.tel[i] & B1) && ((((_group == conf.tel[i] >> 1) & B1111)) || (conf.tel[i] >> 5 & B1))) { 
           nilSemWait(&GSMSem);    // wait for slot
-          _status = Serial.ATsendSMSBegin(conf.tel_num[i]);
+          _status = GSM.ATsendSMSBegin(conf.tel_num[i]);
           WS.print(F("SMS begin: ")); WS.println(_status);
           if (_status != 1) {
             nilSemSignal(&GSMSem);  // Exit region.
             break; 
           }
-          _status = Serial.ATsendSMSEnd(sms_text, true);
+          _status = GSM.ATsendSMSEnd(sms_text, true);
           WS.print(F("SMS sent: ")); WS.println(_status);
           nilSemSignal(&GSMSem);  // Exit region.
         }
@@ -1888,14 +1889,14 @@ NIL_THREAD(AlertThread, arg) {
           sms_text[0] = 0;
           strcat(sms_text, AT_D); strcat(sms_text, conf.tel_num[i]); strcat(sms_text, ":");
           nilSemWait(&GSMSem);    // wait for slot
-          _status = Serial.ATsendCmd(sms_text); 
+          _status = GSM.ATsendCmd(sms_text); 
           WS.print(F("Page begin: ")); WS.println(_status);
           if (_status < 1) {
             nilSemSignal(&GSMSem);  // Exit region.
             break; 
           }
           nilThdSleepSeconds(20); // RING ... RING ...
-          _status = Serial.ATsendCmd(AT_H); 
+          _status = GSM.ATsendCmd(AT_H); 
           WS.print(F("Page end: "));  WS.println(_status);
           nilSemSignal(&GSMSem);  // Exit region.
         }
@@ -1945,13 +1946,12 @@ NIL_THREAD(ServiceThread, arg) {
         if ( timestamp.get() >= (zone[i].last_PIR + (conf.auto_arm * SECS_PER_MIN))) {
           uint8_t _group = (conf.zone[i] >> 1) & B1111;
           _tmp[0] = 'G'; _tmp[1] = 'A'; _tmp[2] = _group;  pushToLog(_tmp, 3); // Authorization auto arm
-          // if group is enabled arm zone else log error to log
+          // if group is enabled arm zone's group else log error to log
           if (conf.group[_group] & B1) { 
             group[_group].setting |= 1;        // arm group
             group[_group].arm_delay = 0;       // set arm delay off
             _resp = sendCmdToGrp(_group, 15);  // send arm message to all nodes
-          } 
-          else {
+          } else {
             if (!((group[_group].setting >> 7) & B1)) {
               group[_group].setting |= (1 << 7); // Set logged disabled bit On
               _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = _group;  pushToLog(_tmp, 3);
@@ -2115,15 +2115,15 @@ NIL_THREAD(ServiceThread, arg) {
       // look if GSM is free
       if (nilSemWaitTimeout(&GSMSem, TIME_IMMEDIATE) != NIL_MSG_TMO) { 
         //WS.println("gsm free");
-        GSMisAlive = Serial.ATsendCmd(AT_is_alive); 
-        if (GSMisAlive) {
+        GSMisAlive = GSM.ATsendCmd(AT_is_alive); 
+        if (GSMisAlive == 1) {
           if (!GSMsetSMS) {
-            //GSMsetSMS = Serial.ATsendCmd(AT_CLIP_ON);             // CLI On
-            GSMsetSMS = Serial.ATsendCmd(AT_set_sms_to_text); // set modem to text SMS format
+            //GSMsetSMS = GSM.ATsendCmd(AT_CLIP_ON);             // CLI On
+            GSMsetSMS = GSM.ATsendCmd(AT_set_sms_to_text); // set modem to text SMS format
           }
-          _resp = Serial.ATsendCmdWR(AT_registered, _text, 3); 
+          _resp = GSM.ATsendCmdWR(AT_registered, _text, 3); 
           GSMreg = strtol((char*)_text, NULL, 10);
-          _resp = Serial.ATsendCmdWR(AT_signal_strength, _text, 2);
+          _resp = GSM.ATsendCmdWR(AT_signal_strength, _text, 2);
           GSMstrength = (strtol((char*)_text, NULL, 10)) * 3; 
         } else { GSMreg = 4; GSMstrength = 0; GSMsetSMS = 0;}
         nilSemSignal(&GSMSem);  // Exit region.
@@ -2134,6 +2134,7 @@ NIL_THREAD(ServiceThread, arg) {
         }
       }
     }
+
     // OUT 1 & 2 handling
     if ((_counter) >= 60) { // cycle every minute
       pinOUT1.write(LOW);
@@ -2145,9 +2146,13 @@ NIL_THREAD(ServiceThread, arg) {
 
     //   MQTT connected
     if (_counter == 0) { 
+      WS.print(F("~"));
       nilSemWait(&ETHSem);    // wait for slot
+      WS.print(F("slot"));
       if (!client.connected()) {
-        client.disconnect();
+        WS.print(F("1"));
+        //client.disconnect(); // This have problems with Teensy Eth.
+        WS.print(F("2"));
         client.setServer(conf.mqtt_ip, conf.mqtt_port);
         WS.print(F(">Eth. down"));
         if (!client.connect(str_MQTT_clientID)) {
@@ -2163,11 +2168,13 @@ NIL_THREAD(ServiceThread, arg) {
           }
         }
       }
+      WS.print(F("slot"));
       nilSemSignal(&ETHSem);  // Exit region.
+      WS.print(F("~"));
     }
     // Read GSM incomming messages
-    if (Serial.isMsg()) {
-      _resp = Serial.read((uint8_t*)sms_text);                     // read serial
+    if (GSM.isMsg()) {
+      _resp = GSM.read((uint8_t*)sms_text);                     // read serial
       #if WEB_DEBUGGING
       WS.print(F(">GSM len: ")); WS.print(_resp); WS.print('>');
       for(uint8_t i = 0; i < _resp; i++) {
@@ -2311,6 +2318,7 @@ NIL_THREAD(SensorThread, arg) {
               case 'D': strcat_P(_text, (char*)text_Digital); break;
               case 'A': strcat_P(_text, (char*)text_Analog); break;
               case 'F': strcat_P(_text, (char*)text_Float); break;
+              case 'X': strcat_P(_text, (char*)text_TX_Power); break;
               default : strcat_P(_text, (char*)text_Undefined); break;
             }
             strcat_P(_text, (char*)text_slash);
@@ -2447,7 +2455,7 @@ NIL_THREAD(DebugThread, arg) {
     idlePointer++;
     if (idlePointer==idleSlots) {
       idlePointer=0;
-      //nilPrintUnusedStack(&WS);
+      nilPrintUnusedStack(&WS);
       //nilPrintStackSizes(&WS);
     }
     idleCount[idlePointer] = 0; // reset idle
@@ -2516,7 +2524,7 @@ NIL_THREAD(DebugThread, arg) {
     conf.setting |= (1 << 0); // Set it Off
   }
   
-  Serial.begin(115200); // GSM modem or serial out
+  GSM.begin(115200); // GSM modem or serial out
   #ifdef WEB_DEBUGGING
     WS.println(F("Start"));
   #endif
@@ -2538,10 +2546,14 @@ NIL_THREAD(DebugThread, arg) {
   // TWI 
   Wire.begin(); Wire.speed(I2C_400KHZ);
 
-  //Ethernet.init(1);
+  Ethernet.init(1);
   // Ethernet
-  if (conf.version != VERSION) {
-    Ethernet.begin(mac); // DHCP
+  if ((conf.version != VERSION) || (conf.ip[0] == 0)) {
+    GSM.print(F("DHCP: "));
+    GSM.println(Ethernet.begin(mac)); // DHCP
+    GSM.print(F("IP  : ")); GSM.println(Ethernet.localIP());
+    GSM.print(F("GW  : ")); GSM.println(Ethernet.gatewayIP());
+    GSM.print(F("Mask: ")); GSM.println(Ethernet.subnetMask());
     conf.ip   = Ethernet.localIP();
     conf.gw   = Ethernet.gatewayIP();
     conf.mask = Ethernet.subnetMask();
@@ -2550,6 +2562,7 @@ NIL_THREAD(DebugThread, arg) {
     client.setCallback(callback);
     Ethernet.begin(mac, conf.ip, conf.gw, conf.gw, conf.mask); // Loaded IP setting
   }
+
 
   // MQTT connect
   if (client.connect(str_MQTT_clientID)) {

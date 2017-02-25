@@ -30,6 +30,7 @@ P(text_loaded)         = "loaded";
 P(text_reset)          = "reset";
 P(text_armed)          = "armed";
 P(text_Arm)            = "Arm";
+P(text_Disarm)         = "Disarm";
 P(text_arm)            = "arm";
 P(text_Armed)          = "Armed";
 P(text_ALARM)          = "ALARM !!!";

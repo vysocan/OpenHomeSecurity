@@ -152,7 +152,8 @@ void setDefault(){
   //                  ||||||||         |||||||-  Tamper signal output 2
   //                  ||||||||         ||||||||-  Enabled 
   //                  54321098         76543210
-    conf.group[ i] = B00000000 << 8 | B00000000; 
+   conf.group[i] = i << 12 | i << 8 | B00000000; 
+  //  conf.group[ i] = B00000000 << 8 | B00000000; 
   }
 
   conf.ee_pos = 0;
@@ -165,8 +166,8 @@ void setDefault(){
   conf.mqtt_ip[0] = 10; conf.mqtt_ip[1] = 10; conf.mqtt_ip[2] = 10; conf.mqtt_ip[3] = 126;
   conf.mqtt_port = 1883;
   conf.mqtt = 0;
-  conf.ip[0]      = 10;      conf.ip[1] = 10;      conf.ip[2] = 10;      conf.ip[3] = 200;
-  conf.gw[0]      = 10;      conf.gw[1] = 10;      conf.gw[2] = 10;      conf.gw[3] = 254;
+  conf.ip[0]      = 0;       conf.ip[1] = 0;       conf.ip[2] = 0;       conf.ip[3] = 0;
+  conf.gw[0]      = 0;       conf.gw[1] = 0;       conf.gw[2] = 0;       conf.gw[3] = 0;
   conf.mask[0]    = 255;   conf.mask[1] = 255;   conf.mask[2] = 255;   conf.mask[3] = 0;
   conf.ntp_ip[0]  = 195; conf.ntp_ip[1] = 113; conf.ntp_ip[2] = 144; conf.ntp_ip[3] = 201;
   conf.user[0] = '#'; conf.user[1] = 0;
@@ -198,27 +199,27 @@ void setDefault(){
 #define ALERT_DISARMED            1
 #define ALERT_FALSE_KEY           0  
 // Alert settings 
-//            |- 
-//            ||- 
-//            |||- 
-//            ||||- Trigger
-// System     |||||- Battery state
-// System     ||||||- AC state
-// System     |||||||- Configration saved
-//            ||||||||- Fifo
-// System     ||||||||         
-// System     ||||||||         |- Monitoring started
-// System     ||||||||         ||- ALARM - No authentication
-// Zone       ||||||||         |||- PIR
-// Zone       ||||||||         ||||- TAMPER
-// Zone       ||||||||         |||||- Open Alarm
-// Group      ||||||||         ||||||- Armed/Auto armed
-// Group      ||||||||         |||||||- Disarmed
-// Keys       ||||||||         ||||||||- Undefined Key
-//            54321098         76543210
-  conf.alerts[alert_SMS]   = 0x0000;
-  conf.alerts[alert_email] = 0x0000;
-  conf.alerts[alert_page]  = 0x0000;
+//                            |- 
+//                            ||- 
+//                            |||- 
+//                            ||||- Trigger
+//                 System     |||||- Battery state
+//                 System     ||||||- AC state
+//                 System     |||||||- Configration saved
+//                 System     ||||||||- Fifo
+//                 System     ||||||||         
+//                 System     ||||||||         |- Monitoring started
+//                 System     ||||||||         ||- ALARM - No authentication
+//                 Zone       ||||||||         |||- PIR
+//                 Zone       ||||||||         ||||- TAMPER
+//                 Zone       ||||||||         |||||- Open Alarm
+//                 Group      ||||||||         ||||||- Armed/Auto armed
+//                 Group      ||||||||         |||||||- Disarmed
+//                 Keys       ||||||||         ||||||||- Undefined Key
+//                            54321098         76543210
+  conf.alerts[alert_SMS]   = B00000000 << 8 | B00000000;
+  conf.alerts[alert_email] = B00000000 << 8 | B00000000;
+  conf.alerts[alert_page]  = B00000000 << 8 | B00000000;
 
   conf.time_std_week   = 0;      //First, Second, Third, Fourth, or Last week of the month
   conf.time_std_dow    = 0;      //day of week, 0=Sun, 1=Mon, ... 6=Sat
