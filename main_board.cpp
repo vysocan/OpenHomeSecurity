@@ -43,6 +43,7 @@ static uint8_t mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };  // CHANGE THIS 
 #define NTP_LOCAL_PORT         9999           // local port to listen for UDP packets
 #define NTP_PACKET_SIZE        48             // NTP time stamp is in the first 48 bytes of the message
 #define NTP_SECS_YR_1900_2000 (3155673600UL)
+#define NTP_SECS_YR_1970_2000 (946684800UL)
 #define NTP_USELESS_BYTES      40             // Set useless to 32 for speed; set to 40 for accuracy.
 #define NTP_POLL_INTV          100            // poll response this many ms
 #define NTP_POLL_MAX           40             // poll response up to this many times
@@ -2146,13 +2147,9 @@ NIL_THREAD(ServiceThread, arg) {
 
     //   MQTT connected
     if (_counter == 0) { 
-      WS.print(F("~"));
       nilSemWait(&ETHSem);    // wait for slot
-      WS.print(F("slot"));
       if (!client.connected()) {
-        WS.print(F("1"));
         //client.disconnect(); // This have problems with Teensy Eth.
-        WS.print(F("2"));
         client.setServer(conf.mqtt_ip, conf.mqtt_port);
         WS.print(F(">Eth. down"));
         if (!client.connect(str_MQTT_clientID)) {
@@ -2168,10 +2165,9 @@ NIL_THREAD(ServiceThread, arg) {
           }
         }
       }
-      WS.print(F("slot"));
       nilSemSignal(&ETHSem);  // Exit region.
-      WS.print(F("~"));
     }
+
     // Read GSM incomming messages
     if (GSM.isMsg()) {
       _resp = GSM.read((uint8_t*)sms_text);                     // read serial
@@ -2546,7 +2542,7 @@ NIL_THREAD(DebugThread, arg) {
   // TWI 
   Wire.begin(); Wire.speed(I2C_400KHZ);
 
-  Ethernet.init(1);
+  Ethernet.init(1); // Teensy Etherent Init
   // Ethernet
   if ((conf.version != VERSION) || (conf.ip[0] == 0)) {
     GSM.print(F("DHCP: "));

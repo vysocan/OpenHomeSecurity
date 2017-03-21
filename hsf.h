@@ -219,6 +219,20 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       do {
         repeat = server.readPOSTparam(name, 2, value, 17);
         switch(name[0]){
+          case 't': // NTP Sync
+            time_temp.set(strtol(value, NULL, 10));
+            //WS.println(time_temp.get());
+            time_temp.set(time_temp.get()-NTP_SECS_YR_1970_2000);
+            //WS.println(time_temp.get());
+            //WS.println(timestamp.get());
+            RTC.adjust(time_temp.get());
+            timestamp = time_temp;
+            // Re-set timers 
+            for (int8_t i=0; i < TIMERS ; i++){
+              //  timer enabled
+              if (timer[i].setting & B1) set_timer(i);
+            }
+          break;
           case 'T': // NTP Sync
             time_temp = GetNTPTime(udp);  
             if (time_temp.get() > 0) {
@@ -444,8 +458,12 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       server << GSMstrength; server.print('%'); 
       server.printP(html_e_td_e_tr);
       server.printP(html_e_table);
+      server << "<input type='hidden' id='dt' name='t'/><script type='text/javascript'>"
+                "function GT(){document.getElementById('dt').value=Math.floor(Date.now()/1000)}"
+                "</script>";
       server.printP(html_F_A); // submit Apply
       server.printP(html_F_GetNTP);
+      server << "<input type='submit' name='D' value='Get browser time' onclick='GT()'/>";
       server.printP(html_F_LA); // submit Load all
       server.printP(html_F_SA); // submit Save all
       server.printP(html_F_RD); // submit Reset default
@@ -1448,7 +1466,7 @@ void webSetMQTT(WebServer &server, WebServer::ConnectionType type, char *url_tai
           case 'V': conf.mask[3] = strtol(value, NULL, 10); break;
           */
           case 'A': // Apply
-            client.disconnect();
+            // client.disconnect(); // This have problems with Teensy Eth.
             client.setServer(conf.mqtt_ip, conf.mqtt_port);
             if (client.connect(str_MQTT_clientID)) {
               client.subscribe(str_MQTT_Subscribe);
