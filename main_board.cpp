@@ -32,8 +32,14 @@
 #include <DigitalIO.h>
 #include <SPI.h>
 
+//#define TEST 1
+
 #include <Ethernet.h>
+#ifdef TEST
+static uint8_t mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xAD };  // CHANGE THIS TO YOUR OWN UNIQUE VALUE
+#else
 static uint8_t mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };  // CHANGE THIS TO YOUR OWN UNIQUE VALUE
+#endif
 
 // Global configuration and default setting
 #include "conf.h"
@@ -67,8 +73,13 @@ WebServer webserver(PREFIX, 80);
 // Callback function header
 void callback(char* topic, byte* payload, unsigned int length);
 
+#ifdef TEST
 char str_MQTT_clientID[]  = "OHS2";
 char str_MQTT_Subscribe[] = "OHS2/In/#";
+#else
+char str_MQTT_clientID[]  = "OHS";
+char str_MQTT_Subscribe[] = "OHS/In/#";
+#endif
 EthernetClient MQTTethClient;
 
 PubSubClient client(MQTTethClient);
@@ -359,7 +370,7 @@ char last_key[KEY_LEN+1] = "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF";
 char _tmp[LOG_MESSAGE];   // for logger 
 char b64_text[EMAIL_LEN]; // encode text
 // GSM modem 
-int8_t GSMisAlive = 0, GSMsetSMS = 0;
+int8_t  GSMisAlive = 0, GSMsetSMS = 0;
 uint8_t GSMreg = 4, GSMstrength = 0;
 // 
 uint8_t n = 0; 
@@ -462,7 +473,7 @@ uint8_t sendCmd(uint8_t node, uint8_t cmd){
     if (!_resp) ++radio_no_ack;
     nilSemSignal(&RFMSem);  // Exit region.
     WS.print(node-RADIO_UNIT_OFFSET); WS.print(F(",")); 
-    WS.print(F(" R:")); WS.println(_resp);
+    WS.print(F(" RC:")); WS.println(_resp);
   }
   return _resp;
 }
@@ -775,7 +786,8 @@ inline void a3_to_a4(unsigned char * a4, unsigned char * a3) {
   a4[3] =  (a3[2] & 0x3f);
 }
 
-int base64_encode(char *output, char *input, uint8_t inputLen) {
+//uint8_t base64_encode(char *output, char *input, uint8_t inputLen) {
+void base64_encode(char *output, char *input, uint8_t inputLen) {  
   uint8_t i = 0, j = 0, encLen = 0;
   unsigned char a3[3];
   unsigned char a4[4];
@@ -801,7 +813,7 @@ int base64_encode(char *output, char *input, uint8_t inputLen) {
     }
   }
   output[encLen] = 0;
-  return encLen;
+//  return encLen;
 }
 
 void set_timer(uint8_t _timer, uint8_t _restart = 1) {
@@ -924,7 +936,8 @@ void process_triggers(uint8_t _address, char _type, uint8_t _number, float _valu
           for (_update_node = 0; _update_node < nodes; _update_node++) {
             if (node[_update_node].address  == trigger[_trigger].to_address &&
                 node[_update_node].function == 'I' &&
-                node[_update_node].number   == trigger[_trigger].to_number) { 
+                node[_update_node].number   == trigger[_trigger].to_number &&
+                node[_update_node].setting & B1) { 
               //WS.print("_update_node: "); WS.println(_update_node);
               _found = 1;
               break;
@@ -966,7 +979,7 @@ void process_triggers(uint8_t _address, char _type, uint8_t _number, float _valu
             }
           } //_found
         }  
-      } else { // not found trigger
+      } else { // Off trigger
         //WS.println(F("trigger off"));
         //    Logging enabled                            triggered
         if (((trigger[_trigger].setting) >> 6 & B1) && ((trigger[_trigger].setting) >> 5 & B1)) {
@@ -1390,7 +1403,7 @@ NIL_THREAD(RS485RXThread, arg) {
                   _tmp[0] = 'A'; _tmp[1] = 'A'; _tmp[2] = i; _tmp[3] = 0; pushToLog(_tmp);
                   // if group enabled arm group or log error to log. 
                   if (conf.group[_group] & B1) { 
-                    group[_group].setting |= 1;                   // arm group
+                    group[_group].setting |= (1 << 0);   // arm group
                     group[_group].arm_delay = conf.arm_delay; // set arm delay
                     _resp = sendCmdToGrp(_group, 10);  // send arming message to all nodes
                   } 
@@ -1440,8 +1453,8 @@ NIL_THREAD(RS485RXThread, arg) {
         _pos+=REG_LEN;
       } while (_pos < RX_msg.data_length);
     }
-    // Sensors
-    if (RX_msg.ctrl == FLAG_DTA && RX_msg.buffer[0]=='S') {
+    // Sensors & Inputs feedback
+    if ((RX_msg.ctrl == FLAG_DTA) && ((RX_msg.buffer[0]=='S') || (RX_msg.buffer[0]=='I'))){
       _pos = 1;
       do {
         node_t *p = sensor_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
@@ -1449,6 +1462,7 @@ NIL_THREAD(RS485RXThread, arg) {
           pushToLog("FS"); // node queue is full
           continue; // Continue if no free space.
         }
+        p->function = RX_msg.buffer[0];
         p->address  = RX_msg.address;
         p->type     = RX_msg.buffer[_pos];
         p->number   = (uint8_t)RX_msg.buffer[_pos+1];
@@ -1640,9 +1654,7 @@ void smtp_escape(uint8_t _state) {
   SMTPethClient.stop();
   nilSemSignal(&ETHSem);  // Exit region.
   WS.println(F("Email End"));
-  if (_state > 0) {
-    _tmp[0] = 'T'; _tmp[1] = 'E'; _tmp[2] = _state;  pushToLog(_tmp, 3); // 
-  }
+  if (_state > 0) { _tmp[0] = 'T'; _tmp[1] = 'E'; _tmp[2] = _state;  pushToLog(_tmp, 3);}
 }
 
 //------------------------------------------------------------------------------
@@ -1650,7 +1662,7 @@ void smtp_escape(uint8_t _state) {
 //
 NIL_WORKING_AREA(waAlertThread, 192);
 NIL_THREAD(AlertThread, arg) {
-  uint8_t _group, _smtp_go;
+  uint8_t _group, _smtp_go, _resp;
   int8_t _status;
   //uint8_t _text[10];
 
@@ -1888,7 +1900,7 @@ NIL_THREAD(AlertThread, arg) {
         if ((conf.tel[i] & B1) && ((((_group == conf.tel[i] >> 1) & B1111)) || (conf.tel[i] >> 5 & B1))) { 
           // Prepare ATD+ command
           sms_text[0] = 0;
-          strcat(sms_text, AT_D); strcat(sms_text, conf.tel_num[i]); strcat(sms_text, ":");
+          strcat(sms_text, AT_D); strcat(sms_text, conf.tel_num[i]); strcat(sms_text, ";");
           nilSemWait(&GSMSem);    // wait for slot
           _status = GSM.ATsendCmd(sms_text); 
           WS.print(F("Page begin: ")); WS.println(_status);
@@ -1943,29 +1955,34 @@ NIL_THREAD(ServiceThread, arg) {
 
     // Auto arm
     for (int8_t i=0; i < ALR_ZONES ; i++){
-      if ((conf.zone[i] & B1) && ((conf.zone[i] >> 7) & B1)){ // Zone enabled and auto arming
+      //   Zone enabled            auto arm                     
+      if ((conf.zone[i] & B1) && ((conf.zone[i] >> 7) & B1)){ 
         if ( timestamp.get() >= (zone[i].last_PIR + (conf.auto_arm * SECS_PER_MIN))) {
           uint8_t _group = (conf.zone[i] >> 1) & B1111;
-          _tmp[0] = 'G'; _tmp[1] = 'A'; _tmp[2] = _group;  pushToLog(_tmp, 3); // Authorization auto arm
-          // if group is enabled arm zone's group else log error to log
-          if (conf.group[_group] & B1) { 
-            group[_group].setting |= 1;        // arm group
-            group[_group].arm_delay = 0;       // set arm delay off
-            _resp = sendCmdToGrp(_group, 15);  // send arm message to all nodes
-          } else {
-            if (!((group[_group].setting >> 7) & B1)) {
-              group[_group].setting |= (1 << 7); // Set logged disabled bit On
-              _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = _group;  pushToLog(_tmp, 3);
+          // Only if group not armed already
+          if (!(group[_group].setting & B1)) {
+            _tmp[0] = 'G'; _tmp[1] = 'A'; _tmp[2] = _group; pushToLog(_tmp, 3); // Authorization auto arm
+            // if group is enabled arm zone's group else log error to log
+            if (conf.group[_group] & B1) { 
+              group[_group].setting |= (1 << 0); // arm group
+              group[_group].arm_delay = 0;       // set arm delay off
+              _resp = sendCmdToGrp(_group, 15);  // send arm message to all nodes
+            } else {
+              if (!((group[_group].setting >> 7) & B1)) {
+                group[_group].setting |= (1 << 7); // Set logged disabled bit On
+                _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = _group; pushToLog(_tmp, 3);
+              }
             }
           }
         }
       }
     }
-    // Open alarm
+    // Zone open alarm
     for (int8_t i=0; i < ALR_ZONES ; i++){
-      if ((conf.zone[i] & B1) && ((conf.zone[i] >> 8) & B1)){ // Zone enabled and still open alarm enabled
+      //   Zone enabled      and   open alarm enabled
+      if ((conf.zone[i] & B1) && ((conf.zone[i] >> 8) & B1)) { 
         if ( timestamp.get() >= (zone[i].last_OK + (conf.open_alarm * SECS_PER_MIN))) {
-          _tmp[0] = 'Z'; _tmp[1] = 'O'; _tmp[2] = i;  pushToLog(_tmp, 3); // Authorization still open alarm
+          _tmp[0] = 'Z'; _tmp[1] = 'O'; _tmp[2] = i; pushToLog(_tmp, 3); // Authorization still open alarm
           zone[i].last_OK = timestamp.get();    // update current timestamp
         }
       }
@@ -2003,7 +2020,7 @@ NIL_THREAD(ServiceThread, arg) {
             }
           }
         }
-        //   end time has passed                       is triggered
+        //   end time has passed
         if (time_temp.get() >= timer[i].next_off) { // reschedule even if not triggered //&& ((timer[i].setting >> 9) & B1)) {
           _resp = 0;
           for (_update_node = 0; _update_node < nodes; _update_node++) {
@@ -2126,6 +2143,8 @@ NIL_THREAD(ServiceThread, arg) {
           GSMreg = strtol((char*)_text, NULL, 10);
           _resp = GSM.ATsendCmdWR(AT_signal_strength, _text, 2);
           GSMstrength = (strtol((char*)_text, NULL, 10)) * 3; 
+          //GSM.print("AT+CBAND=\"EGSM_MODE\"\r");
+          //GSM.print("AT+CGMR\r");
         } else { GSMreg = 4; GSMstrength = 0; GSMsetSMS = 0;}
         nilSemSignal(&GSMSem);  // Exit region.
         //WS.println("gsm slot exit");
@@ -2230,7 +2249,7 @@ NIL_THREAD(RadioThread, arg) {
             _pos+=REG_LEN;
           } while (_pos < radio.DATALEN);
         }
-        // Sensor
+        // Sensors & Inputs feedback
         if (((char)radio.DATA[0] == 'S') || ((char)radio.DATA[0] == 'I')) {
           _pos = 1;
           do {
@@ -2287,7 +2306,14 @@ NIL_THREAD(SensorThread, arg) {
     node_t* p = sensor_fifo.waitData(TIME_INFINITE);
 
     _found = 0;
-    for (_node = 0; _node < nodes; _node++) {      
+    for (_node = 0; _node < nodes; _node++) { 
+      /*
+      WS.print(node[_node].function); WS.print(':'); WS.println(p->function);
+      WS.print(node[_node].address); WS.print(':'); WS.println(p->address);
+      WS.print(node[_node].type); WS.print(':'); WS.println(p->type);
+      WS.print(node[_node].number); WS.print(':'); WS.println(p->number);
+      WS.println(F("---"));
+      */
       if ((node[_node].function == p->function) && 
           (node[_node].address  == p->address) && 
           (node[_node].type     == p->type) &&
@@ -2302,9 +2328,10 @@ NIL_THREAD(SensorThread, arg) {
           if ((client.connected()) && ((node[_node].setting >> 7) & B1) && (conf.mqtt & B1)) {
             _text[0] = 0;
             // Create MQTT string
-            strcat_P(_text, (char*)text_OHS); strcat_P(_text, (char*)text_slash);
-            strcat(_text, conf.group_name[(node[_node].setting >> 1) & B1111]); strcat_P(_text, (char*)text_slash);
-            strcat_P(_text, (char*)text_Sensor); strcat_P(_text, (char*)text_slash);
+            strcat(_text, str_MQTT_clientID); strcat(_text, "/");
+            strcat_P(_text, (char*)text_Sensor); strcat(_text, "/");
+            //strcat(_text, conf.group_name[(node[_node].setting >> 1) & B1111]); strcat(_text, "/");
+            strcat(_text, node[_node].name); strcat(_text, "/");
             switch(node[_node].type){
               case 'T': strcat_P(_text, (char*)text_Temperature); break;
               case 'H': strcat_P(_text, (char*)text_Humidity); break;
@@ -2317,7 +2344,7 @@ NIL_THREAD(SensorThread, arg) {
               case 'X': strcat_P(_text, (char*)text_TX_Power); break;
               default : strcat_P(_text, (char*)text_Undefined); break;
             }
-            strcat_P(_text, (char*)text_slash);
+            strcat(_text, "/");
             itoa(node[_node].number, _value, 10); strcat(_text, _value);
             dtostrf(node[_node].value, 6, 2, _value); // value to string
             
@@ -2337,7 +2364,8 @@ NIL_THREAD(SensorThread, arg) {
     if (!_found) {
       // Let's call same unknown node for reregistrtion only once a while or we send many packets if multiple sensor data come in
       if ((timestamp.get() > _lastNodeTime) || (_lastNode != p->address)) {
-        _node = sendCmd(p->address,1); // call this address to register
+        nilThdSleepMilliseconds(5);  // Thid is needed for sleeping batery nodes !!! Or they wont see reg. command.
+        _node = sendCmd(p->address, 1); // call this address to register
         _lastNode = p->address;
         _lastNodeTime = timestamp.get() + 1; // add 1-2 second(s)
       }

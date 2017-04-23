@@ -219,20 +219,35 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       do {
         repeat = server.readPOSTparam(name, 2, value, 17);
         switch(name[0]){
-          case 't': // NTP Sync
+          /*
+          case 't': // Browser Time Sync
             time_temp.set(strtol(value, NULL, 10));
-            //WS.println(time_temp.get());
-            time_temp.set(time_temp.get()-NTP_SECS_YR_1970_2000);
-            //WS.println(time_temp.get());
-            //WS.println(timestamp.get());
-            RTC.adjust(time_temp.get());
-            timestamp = time_temp;
-            // Re-set timers 
-            for (int8_t i=0; i < TIMERS ; i++){
-              //  timer enabled
-              if (timer[i].setting & B1) set_timer(i);
+            if (time_temp.get() > 0) {
+              //WS.println(time_temp.get());
+              time_temp.set(time_temp.get()-NTP_SECS_YR_1970_2000+(conf.time_std_offset * SECS_PER_MIN));
+              //WS.println(time_temp.get());
+              //WS.println(timestamp.get());
+              time_dst = CalculateDST(time_temp.year(), conf.time_dst_week, conf.time_dst_dow,
+                                      conf.time_dst_month, conf.time_dst_hour);
+              time_std = CalculateDST(time_temp.year(), conf.time_std_week, conf.time_std_dow,
+                                      conf.time_std_month, conf.time_std_hour);
+              if ((time_temp.get() >= time_dst.get()) && (time_temp.get() <= time_std.get())) {
+                conf.setting |= (1 << 1); // switch ON DST flag
+                time_temp.set(time_temp.get() + ((conf.time_dst_offset - conf.time_std_offset) * SECS_PER_MIN));
+              } else {
+                conf.setting &= ~(1 << 1); // switch OFF DST flag
+              }
+
+              RTC.adjust(time_temp.get());
+              timestamp = time_temp;
+              // Re-set timers 
+              for (int8_t i=0; i < TIMERS ; i++){
+                //  timer enabled
+                if (timer[i].setting & B1) set_timer(i);
+              }
             }
           break;
+          */
           case 'T': // NTP Sync
             time_temp = GetNTPTime(udp);  
             if (time_temp.get() > 0) {
@@ -458,12 +473,14 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       server << GSMstrength; server.print('%'); 
       server.printP(html_e_td_e_tr);
       server.printP(html_e_table);
-      server << "<input type='hidden' id='dt' name='t'/><script type='text/javascript'>"
+      /*
+      server << "<input type='hidden' id='dt' name='t' value='0'/><script type='text/javascript'>"
                 "function GT(){document.getElementById('dt').value=Math.floor(Date.now()/1000)}"
                 "</script>";
+      */
       server.printP(html_F_A); // submit Apply
       server.printP(html_F_GetNTP);
-      server << "<input type='submit' name='D' value='Get browser time' onclick='GT()'/>";
+      //server << "<input type='submit' name='D' value='Get browser time' onclick='GT()'/>";
       server.printP(html_F_LA); // submit Load all
       server.printP(html_F_SA); // submit Save all
       server.printP(html_F_RD); // submit Reset default
@@ -1359,21 +1376,21 @@ void webSetSens(WebServer &server, WebServer::ConnectionType type, char *url_tai
         ((node[i].setting >> 7) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
         time_temp.set(timestamp.get() - node[i].last_OK); 
         server.print((char*)time_temp.formatedUpTime()); server.printP(html_e_td_td);
-        print_node_function(server, node[i].function);
-        
+        print_node_function(server, node[i].function);      
         server.printP(html_e_td_td);
         print_node_type(server, node[i].type);
-        
         server.printP(html_e_td_td);
-        dtostrf(node[i].value, 6, 2, value);
-        server << value;
-        switch(node[i].type){
-          case 'T': server.printP(text_degC); break;
-          case 'H': // " %"
-          case 'X': server.print(" %" ); break;
-          case 'P': server.printP(text_mBar); break;
-          case 'V': server.printP(text_Volt); break;
-          default: break;
+        //  Do not show value for authentication units
+        if (node[i].function != 'K') {
+          dtostrf(node[i].value, 6, 2, value); server << value;
+          switch(node[i].type){
+            case 'T': server.printP(text_degC); break;
+            case 'H': 
+            case 'X': server.printP(text_percent); break;
+            case 'P': server.printP(text_mBar); break;
+            case 'V': server.printP(text_Volt); break;
+            default: break;
+          }
         }
         server.printP(html_e_td_td);
         server << ((node[i].setting >> 1) & B1111) + 1; server.printP(text_spdashsp); server << conf.group_name[((node[i].setting >> 1) & B1111)];
@@ -1723,8 +1740,8 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
               ii  == trigger[webTrig].number &&
               'Z' == trigger[webTrig].type) { server.printP(html_selected); }
           else                              { server.printP(html_e_tag); }
-          server.printP(text_Zone); server.print(':'); server.print(' '); server << conf.zone_name[ii];
-          server.printP(text_spdashsp); server << ii + 1;
+          server.printP(text_Zone); server.print(':'); server.print(' '); server << ii + 1;
+          server.printP(text_spdashsp); server << conf.zone_name[ii];
           server.printP(html_e_option);
         }
       }
@@ -1765,7 +1782,7 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
       print_OnOffbutton(server, "2", (trigger[webTrig].setting >> 2) & B1);
       server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Pass); server.print(' '); server.printP(text_once); server.printP(html_e_td_td);
-      print_OnOffbutton(server, "4", (trigger[webTrig].setting >> 2) & B1);
+      print_OnOffbutton(server, "4", (trigger[webTrig].setting >> 4) & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Pass); server.printP(html_e_td_td);      
       server.printP(html_radio_sl);
@@ -1778,7 +1795,7 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
       server.radioButton2("m", 0, text_No, !((trigger[webTrig].setting >> 7) & B1) & !((trigger[webTrig].setting >> 8) & B1));
       server.radioButton2("m", 2, text_Timer, !((trigger[webTrig].setting >> 7) & B1) & ((trigger[webTrig].setting >> 8) & B1));
       server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td); 
-      server.printP(text_Off); server.print(' '); server.printP(text_interval); server.printP(html_e_td_td);
+      server.printP(text_Pass); server.print(' '); server.printP(text_Off); server.print(' '); server.printP(text_time); server.printP(html_e_td_td);
       server.printP(html_s_tag); server << 'r'; server.printP(html_m_tag); 
       server << trigger[webTrig].off_time; server.printP(html_e_tag); server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Pass); server.print(' '); server.printP(text_Off); server.print(' '); server.printP(text_interval); server.printP(html_e_td_td);
