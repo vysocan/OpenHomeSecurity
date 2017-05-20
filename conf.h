@@ -13,15 +13,15 @@
 
 // ADC Alarm settings refer to voltage divider and input voltage level
 // values set for resistors 2k2 Tamper, 2k2 PIR
-// OK       0,9V - 1,8V     270 - 559  = 1k1
-// PIR      1,8V - 2,8V     560 - 870  = 2k2
+// OK       0,9V - 1,5V     270 - 470  = 1k1
+// PIR      1,8V - 2,9V     560 - 900  = 2k2
 // TAMPER                              = everything else
 #define ALR_PIR_LOW   560
 #define ALR_PIR       715
-#define ALR_PIR_HI    870
+#define ALR_PIR_HI    900
 #define ALR_OK_LOW    270
-#define ALR_OK        415
-#define ALR_OK_HI     559
+#define ALR_OK        370
+#define ALR_OK_HI     470
 
 #define VERSION       175         // EEPROM config version
 

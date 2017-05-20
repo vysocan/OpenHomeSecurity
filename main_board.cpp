@@ -523,7 +523,7 @@ uint8_t sendCmdToGrp(uint8_t grp, uint8_t cmd, char type = 'K') {
   // Go through all nodes
   WS.print(F("Group:")); WS.print(grp); WS.print(F(" cmd:")); WS.print(cmd); WS.print(F(", node:"));
   for (int8_t i=0; i < nodes; i++){
-    if (node[i].setting & B1) {                       // Auth. node is enabled ?
+    if (node[i].setting & B1) {                       // node is enabled ?
       // Auth. node belong to group                     function of node = 'Key' ?
       if ((((node[i].setting >> 1) & B1111) == grp) && (type == node[i].function)) {  
         nilThdSleepMilliseconds(10); // give transmitter some time to finish previous packet
@@ -613,7 +613,6 @@ DateTime CalculateDST(uint16_t year, uint8_t week, uint8_t dow, uint8_t month, u
 }
 
 DateTime GetNTPTime(UDP &udp){
-  //udpInited = udp.begin(NTP_LOCAL_PORT); // open socket on arbitrary port
   if (!udp.begin(NTP_LOCAL_PORT)) return 0; // Fail if WiFiUdp.begin() could not init a socket
   udp.flush();              // Clear received data from possible stray received packets
   
@@ -682,6 +681,76 @@ DateTime GetNTPTime(UDP &udp){
   //return time - NTP_SECS_YR_1900_2000 + ((conf.time_zone + ((conf.setting >> 1) & B1)) * SECS_PER_MIN); // convert NTP time to seconds after 2000
   return time_temp;
 }
+
+void PublishNode(uint8_t _node){
+  char _text[40];
+  char _value[10];
+  //   MQTT connected           MQTT node enabled                   MQTT publish
+  if ((client.connected()) && ((node[_node].setting >> 7) & B1) && (conf.mqtt & B1)) {
+    _text[0] = 0;
+    // Create MQTT string
+    strcat(_text, str_MQTT_clientID); strcat(_text, "/");
+    switch(node[_node].function){
+      case 'I': strcat_P(_text, (char*)text_Input); break;
+      default : strcat_P(_text, (char*)text_Sensor); break;
+    }
+    strcat(_text, "/");
+    //strcat(_text, conf.group_name[(node[_node].setting >> 1) & B1111]); strcat(_text, "/");
+    strcat(_text, node[_node].name); strcat(_text, "/");
+    switch(node[_node].type){
+      case 'T': strcat_P(_text, (char*)text_Temperature); break;
+      case 'H': strcat_P(_text, (char*)text_Humidity); break;
+      case 'P': strcat_P(_text, (char*)text_Pressure); break;
+      case 'I': strcat_P(_text, (char*)text_Input); break;
+      case 'V': strcat_P(_text, (char*)text_Voltage); break;
+      case 'D': strcat_P(_text, (char*)text_Digital); break;
+      case 'A': strcat_P(_text, (char*)text_Analog); break;
+      case 'F': strcat_P(_text, (char*)text_Float); break;
+      case 'X': strcat_P(_text, (char*)text_TX_Power); break;
+      default : strcat_P(_text, (char*)text_Undefined); break;
+    }
+    strcat(_text, "/");
+    itoa(node[_node].number, _value, 10); strcat(_text, _value);
+    if (node[_node].type == 'D') dtostrf(node[_node].value, 1, 0, _value); // value to string
+    else                         dtostrf(node[_node].value, 6, 2, _value); // value to string
+    
+    nilSemWait(&ETHSem);    // wait for slot
+    client.publish(_text,_value, true);
+    nilSemSignal(&ETHSem);  // Exit region.
+  }
+  if (!client.connected()) {
+    if (MQTTState) { pushToLog("SMF"); MQTTState = 0; }
+  } 
+}
+
+void PublishGroup(uint8_t _group, char state){
+  char _text[40];
+  char _value[10];
+  //   MQTT connected           MQTT publish group
+  if ((client.connected()) && ((conf.mqtt >> 3) & B1)) {
+    _text[0] = 0;
+    // Create MQTT string
+    strcat(_text, str_MQTT_clientID); strcat(_text, "/");
+    strcat_P(_text, (char*)text_Group); strcat(_text, "/");
+    strcat(_text, conf.group_name[_group]); strcat(_text, "/");
+    strcat_P(_text, (char*)text_state); 
+    _value[0] = 0;
+    switch(state){
+      case 'A': strcat_P(_value, (char*)text_armed_away); break;
+      case 'D': strcat_P(_value, (char*)text_disarmed); break;
+      case 'T': strcat_P(_value, (char*)text_triggered); break;
+      case 'P': strcat_P(_value, (char*)text_pending); break;
+      default : strcat_P(_value, (char*)text_undefined); break;
+    }
+    nilSemWait(&ETHSem);    // wait for slot
+    client.publish(_text,_value, true);
+    nilSemSignal(&ETHSem);  // Exit region.
+  }
+  if (!client.connected()) {
+    if (MQTTState) { pushToLog("SMF"); MQTTState = 0; }
+  } 
+}
+
 
 // MQTT Callback function
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -975,6 +1044,7 @@ void process_triggers(uint8_t _address, char _type, uint8_t _number, float _valu
                 if ((trigger[_trigger].setting) >> 4 & B1) {
                   trigger[_trigger].setting |= (1 << 3); // switch ON passed
                 }
+                PublishNode(_update_node);
               }
             }
           } //_found
@@ -1015,6 +1085,7 @@ void process_triggers(uint8_t _address, char _type, uint8_t _number, float _valu
               else               { node[_update_node].value = trigger[_trigger].constant_off; }
               trigger[_trigger].setting &= ~(1 << 5); // switch OFF Is alerted/triggered
               trigger[_trigger].setting &= ~(1 << 3); // switch OFF passed
+              PublishNode(_update_node);
             }
           } //_found
         } // if 
@@ -1110,10 +1181,11 @@ NIL_THREAD(ZoneThread, arg) {
             zone[i].last_OK = timestamp.get();    // update current timestamp
             break;
           case ALR_PIR_LOW ... ALR_PIR_HI:
-            //WS.print(F("P,"));
+            //WS.println(); WS.print(F("Zone:")); WS.print(i);
+            //WS.print(F(",Gr:")); WS.print(_group); WS.print(F(", ")); 
             //     zone not have alarm              group delay is 0
-            if (!((zone[i].setting >> 1) & B1) && !(group[_group].arm_delay)){
-              //WS.print(F("N,"));
+            if (!((zone[i].setting >> 1) & B1) && (group[_group].arm_delay == 0)){
+              //WS.print(F("+ "));
               // if group not enabled log error to log. 
               if (!(conf.group[_group] & B1)) {
                 if (!((group[_group].setting >> 7) & B1)) {
@@ -1121,9 +1193,11 @@ NIL_THREAD(ZoneThread, arg) {
                   _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = _group;  pushToLog(_tmp, 3);
                 }
               } else {
+                //WS.print(F(", armed:")); WS.print(group[_group].setting & B1);
+                //WS.print(F(", last:")); WS.print(zone[i].last_event);
                 //   group armed
                 if ((group[_group].setting & B1) && (zone[i].last_event == 'P')) {
-                  //WS.println(F(">P"));
+                  //WS.print(F(" = PIR"));
                   alarm_event_t* p = alarm_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
                   if (p == 0) {
                     if (!((zone[i].setting >> 7) & B1)) {
@@ -1157,6 +1231,7 @@ NIL_THREAD(ZoneThread, arg) {
               } else {
                 if (zone[i].last_event == 'T') {
                   //WS.println(F(">T"));
+                  WS.print(F("Zone:")); WS.print(i); WS.print(F("T:")); WS.print(val);
                   alarm_event_t* p = alarm_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
                   if (p == 0) {
                     if (!((zone[i].setting >> 7) & B1)) {
@@ -1360,11 +1435,12 @@ NIL_THREAD(RS485RXThread, arg) {
     #endif
       
     // iButtons keys
-    if (RX_msg.ctrl == FLAG_DTA && RX_msg.data_length == KEY_LEN && RX_msg.buffer[0]!='R') {  // incoming message looks like a key 
+    if (RX_msg.ctrl == FLAG_DTA && RX_msg.data_length == KEY_LEN) {  // incoming message looks like a key 
       _found = 0;
-      // search node with given address
+      // search node with given address but only Keys
       for (_node=0; _node < nodes; _node++) {
-        if (node[_node].address == RX_msg.address) {
+        if ((node[_node].address  == RX_msg.address) &&
+            (node[_node].function == 'K')) {
           _found = 1; break;
         }
       }
@@ -1380,18 +1456,18 @@ NIL_THREAD(RS485RXThread, arg) {
               //  key enabled && (group = key_group || key = global)
               if ((conf.key_setting[i] & B1) &&
                  ((_group == ((conf.key_setting[i] >> 1) & B1111)) || ((conf.key_setting[i] >> 5) & B1))) {
-                //     we have alarm                          group is armed
+                //     we have alarm                     or   group is armed
                 if  (((group[_group].setting) >> 1 & B1) || ((group[_group].setting) & B1)) { 
-                  if ((group[_group].setting) >> 1 & B1) { // we have alarm
+                  // we have alarm
+                  if ((group[_group].setting) >> 1 & B1) { 
                     group[_group].setting &= ~(1 << 1);    // set group alarm off
-                    // set each member zone alarm off
-                    for (uint8_t j=0; j < ALR_ZONES; j++){
-                      if (((conf.zone[j] >> 1) & B1111) == _group)
-                        zone[j].setting &= ~(1 << 1); 
-                    }
-                    /* *** ToDo: add bitwise reset of OUTs instead of full reset */
+                    /* *** ToDo: add bitwise reset of OUTs instead of full reset ? */
                     OUTs = 0; // Reset outs  
                     pinOUT1.write(LOW); pinOUT2.write(LOW); // Turn off OUT 1 & 2
+                  }
+                  // set each member zone of this group as alarm off
+                  for (uint8_t j=0; j < ALR_ZONES; j++){
+                    if (((conf.zone[j] >> 1) & B1111) == _group) zone[j].setting &= ~(1 << 1); 
                   }
                   group[_group].setting &= ~(1 << 0);    // disarm group
                   group[_group].setting &= ~(1 << 2);    // set auth bit off
@@ -1428,6 +1504,7 @@ NIL_THREAD(RS485RXThread, arg) {
         } 
       } else { // node not found
         // call this address to register
+        nilThdSleepMilliseconds(10);  
         _resp = sendCmd(RX_msg.address,1);
       }
     } // incoming message looks like a key
@@ -1924,7 +2001,7 @@ NIL_THREAD(AlertThread, arg) {
 //------------------------------------------------------------------------------
 // Service thread
 //
-NIL_WORKING_AREA(waServiceThread, 160);  
+NIL_WORKING_AREA(waServiceThread, 190);  
 NIL_THREAD(ServiceThread, arg) {
   int8_t  _resp;
   uint8_t _update_node;
@@ -1977,6 +2054,7 @@ NIL_THREAD(ServiceThread, arg) {
         }
       }
     }
+
     // Zone open alarm
     for (int8_t i=0; i < ALR_ZONES ; i++){
       //   Zone enabled      and   open alarm enabled
@@ -2016,6 +2094,7 @@ NIL_THREAD(ServiceThread, arg) {
                 timer[i].setting |= (1 << 9); // Set triggered On
                 node[_update_node].last_OK = timestamp.get(); // update receiving node current timestamp
                 node[_update_node].value   = timer[i].constant_on; // update receiving node value
+                PublishNode(_update_node);
               }
             }
           }
@@ -2042,6 +2121,7 @@ NIL_THREAD(ServiceThread, arg) {
               timer[i].setting &= ~(1 << 9); // Set triggered Off
               node[_update_node].last_OK = timestamp.get(); // update receiving node current timestamp
               node[_update_node].value   = timer[i].constant_off; // update receiving node value
+              PublishNode(_update_node);
             }
           }
           set_timer(i, 0); // set next start time for this timer
@@ -2075,6 +2155,7 @@ NIL_THREAD(ServiceThread, arg) {
               trigger[i].next_off = 0; // Clear off timer
               node[_update_node].last_OK = timestamp.get(); // update receiving node current timestamp
               node[_update_node].value   = trigger[i].constant_off; // update receiving node value
+              PublishNode(_update_node);
             }
           }
         }
@@ -2133,7 +2214,7 @@ NIL_THREAD(ServiceThread, arg) {
       // look if GSM is free
       if (nilSemWaitTimeout(&GSMSem, TIME_IMMEDIATE) != NIL_MSG_TMO) { 
         //WS.println("gsm free");
-        GSMisAlive = GSM.ATsendCmd(AT_is_alive); 
+        GSMisAlive = GSM.ATsendCmd(AT_is_alive);
         if (GSMisAlive == 1) {
           if (!GSMsetSMS) {
             //GSMsetSMS = GSM.ATsendCmd(AT_CLIP_ON);             // CLI On
@@ -2294,8 +2375,8 @@ NIL_WORKING_AREA(waSensorThread, 160);
 NIL_THREAD(SensorThread, arg) {
   uint8_t _node, _found, _lastNode = 0;
   uint32_t _lastNodeTime = 0;
-  char _text[40];
-  char _value[10];
+  //char _text[40];
+  //char _value[10];
 
   #ifdef WEB_DEBUGGING
   WS.println(F("Sensor thread started"));    
@@ -2324,12 +2405,18 @@ NIL_THREAD(SensorThread, arg) {
           node[_node].value   = p->value;
           node[_node].last_OK = timestamp.get();
           
+          PublishNode(_node);
+          /*
           //   MQTT connected           MQTT node enabled                   MQTT publish
           if ((client.connected()) && ((node[_node].setting >> 7) & B1) && (conf.mqtt & B1)) {
             _text[0] = 0;
             // Create MQTT string
             strcat(_text, str_MQTT_clientID); strcat(_text, "/");
-            strcat_P(_text, (char*)text_Sensor); strcat(_text, "/");
+            switch(node[_node].function){
+              case 'I': strcat_P(_text, (char*)text_Input); break;
+              default : strcat_P(_text, (char*)text_Sensor); break;
+            }
+            strcat(_text, "/");
             //strcat(_text, conf.group_name[(node[_node].setting >> 1) & B1111]); strcat(_text, "/");
             strcat(_text, node[_node].name); strcat(_text, "/");
             switch(node[_node].type){
@@ -2349,12 +2436,13 @@ NIL_THREAD(SensorThread, arg) {
             dtostrf(node[_node].value, 6, 2, _value); // value to string
             
             nilSemWait(&ETHSem);    // wait for slot
-            client.publish(_text,_value);
+            client.publish(_text,_value, true);
             nilSemSignal(&ETHSem);  // Exit region.
           }
           if (!client.connected()) {
             if (MQTTState) { pushToLog("SMF"); MQTTState = 0; }
-          }    
+          } 
+          */
           // Triggers
           process_triggers(node[_node].address, node[_node].type, node[_node].number, node[_node].value);
         } // node enbled

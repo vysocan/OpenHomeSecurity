@@ -455,7 +455,9 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       server.printP(text_GSM); server.print(' '); server.printP(text_modem); server.print(' '); server.printP(text_On); server.printP(html_e_td_td);
       pinGSM_ON.read() ? server.printP(text_i_disabled) : server.printP(text_i_OK); server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_GSM); server.print(' '); server.printP(text_modem); server.print(' '); server.printP(text_connected); server.printP(html_e_td_td);
-      GSMisAlive ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_e_tr_tr_td);      
+      if (GSMisAlive == 1) server.printP(text_i_OK);
+      else                 server.printP(text_i_disabled);
+      server.printP(html_e_td_e_tr_tr_td);      
       server.printP(text_GSM); server.print(' '); server.printP(text_network);
       server.printP(html_e_td_td);
       switch(GSMreg){
@@ -577,7 +579,7 @@ void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tai
           case 'Z': // PIR
             server.printP(text_Zone); server.print(' '); server << (uint8_t)value[7]+1; server.printP(text_spdashsp); server << conf.zone_name[value[7]]; server.print(' ');
             switch(value[6]){
-              case 'P': server.printP(text_trigger); server.printP(text_ed); server.print(' '); server.printP(text_alarm); break;
+              case 'P': server.printP(text_triggered); server.print(' '); server.printP(text_alarm); break;
               case 'T': server.printP(text_tamper); server.printP(text_ed); break;
               case 'O': server.printP(text_is); server.print(' '); server.printP(text_open); break;
               default : server.printP(text_unk); break;
@@ -1132,7 +1134,6 @@ void webSetKey(WebServer &server, WebServer::ConnectionType type, char *url_tail
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Key); server.print(' '); server.printP(text_is); server.printP(html_e_td_td);
       
-      
       print_OnOffbutton(server, "0", conf.key_setting[webKey] & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Value); server.printP(html_e_td_td);
@@ -1140,7 +1141,6 @@ void webSetKey(WebServer &server, WebServer::ConnectionType type, char *url_tail
       server.printP(html_s_tag); server << 'k'; server.printP(html_m_tag); server << value; server.printP(html_e_tag);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Global); server.print(' '); server.printP(text_key); server.printP(html_e_td_td);
-      
       
       print_OnOffbutton(server, "5", conf.key_setting[webKey] >> 5 & B1);
       server.printP(html_e_td_e_tr_tr_td);
@@ -1249,8 +1249,6 @@ void webSetPhone(WebServer &server, WebServer::ConnectionType type, char *url_ta
         server.printP(html_s_tag); server << 'n'; server.printP(html_m_tag); server << conf.tel_name[webTel]; server.printP(html_e_tag);
         server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Contact); server.print(' '); server.printP(text_is); server.printP(html_e_td_td);
-        
-        
         print_OnOffbutton(server, "0", conf.tel[webTel] & B1);
         server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Phone); server.print(' '); server.printP(text_number); server.printP(html_e_td_td);
@@ -1260,8 +1258,6 @@ void webSetPhone(WebServer &server, WebServer::ConnectionType type, char *url_ta
         server.printP(html_s_tag); server << 'm'; server.printP(html_m_tag); server << conf.email[webTel]; server.printP(html_e_tag);
         server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Global); server.print(' '); server.printP(text_contact); server.printP(html_e_td_td);
-        
-        
         print_OnOffbutton(server, "5", conf.tel[webTel] >> 5 & B1);
         server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Group); server.printP(html_e_td_td);
@@ -1548,6 +1544,9 @@ void webSetMQTT(WebServer &server, WebServer::ConnectionType type, char *url_tai
       server.printP(text_Sensor); server.print(' '); server.printP(text_MQTT); server.print(' '); server.printP(text_publish); server.printP(html_e_td_td);
       print_OnOffbutton(server, "0", (conf.mqtt >> 0) & B1);
       server.printP(html_e_td_e_tr_tr_td); 
+      server.printP(text_Group); server.print(' '); server.printP(text_MQTT); server.print(' '); server.printP(text_publish); server.printP(html_e_td_td);
+      print_OnOffbutton(server, "3", (conf.mqtt >> 3) & B1);
+      server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Sensor); server.print(' '); server.printP(text_MQTT); server.print(' '); server.printP(text_subscribe); server.printP(html_e_td_td);
       print_OnOffbutton(server, "1", (conf.mqtt >> 1) & B1);
       server.printP(html_e_td_e_tr_tr_td);
@@ -1647,7 +1646,7 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
                                 trigger[webTrig].setting |=  (1 << 2); // turn ON Pass 
                                 trigger[webTrig].setting |=  (1 << 4); // turn ON Pass Once 
                                 trigger[webTrig].setting &= ~(1 << 1); // pass CONSTANT
-                                } 
+                              } 
             else                trigger[webTrig].setting &= ~(1 << 8);
           break;
           case 'l': // Off interval
