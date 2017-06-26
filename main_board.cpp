@@ -38,7 +38,7 @@
 #ifdef TEST
 static uint8_t mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xAD };  // CHANGE THIS TO YOUR OWN UNIQUE VALUE
 #else
-static uint8_t mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };  // CHANGE THIS TO YOUR OWN UNIQUE VALUE
+static uint8_t mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xFD };  // CHANGE THIS TO YOUR OWN UNIQUE VALUE
 #endif
 
 // Global configuration and default setting
@@ -249,7 +249,7 @@ struct sensor_t {
   uint8_t number   = 0;
   float   value    = 0;
 };
-NilFIFO<node_t, 6> sensor_fifo;
+NilFIFO<node_t, 15> sensor_fifo;
 
 // Registration fifo
 struct register_t {
@@ -402,7 +402,7 @@ SEMAPHORE_DECL(ETHSem, 1);   // one slot only
 
 // Put string into a fifo log
 void pushToLog(char *what, uint8_t size = 0){ 
-  uint8_t _pos = 5;
+  //uint8_t _pos = 5;
   log_event_t* p = log_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
   if (p == 0) return; // return if no free space.
   
@@ -410,20 +410,17 @@ void pushToLog(char *what, uint8_t size = 0){
   if (size == 0) size = strlen(what);
 
   l.lval = timestamp.get(); 
+  memcpy(p->text, l.b, 4);         // copy timestamp, p->text[4] = 0 already set 
+  memmove(p->text+5, what, size);  // copy "what"
+
+  /* Replaced by memcpy and memmove
   p->text[0] = l.b[0]; p->text[1] = l.b[1]; p->text[2] = l.b[2]; p->text[3] = l.b[3];
   p->text[4] = 0; 
-
   while ((_pos-5 < size) && (_pos < EEPROM_MESSAGE)) {
     p->text[_pos] = what[_pos-5];
     //WS.print(p->text[_pos]);WS.print(F("-")); WS.print(p->text[_pos], DEC);WS.print(F(", "));
     _pos++;
   }
-  /*
-  WS.println();
-  for(uint8_t i = 0; i < EEPROM_MESSAGE; i++) { //p->text[i] = 0;
-    WS.print(p->text[i]); WS.print(F("-")); WS.print(p->text[i], DEC);WS.print(F(", "));
-  }
-  WS.println();
   */
   log_fifo.signalData();  // Signal idle thread data is available.
 }
@@ -711,6 +708,7 @@ void PublishNode(uint8_t _node){
     }
     strcat(_text, "/");
     itoa(node[_node].number, _value, 10); strcat(_text, _value);
+    // For Digital nodes we publish 0 or 1 not float string
     if (node[_node].type == 'D') dtostrf(node[_node].value, 1, 0, _value); // value to string
     else                         dtostrf(node[_node].value, 6, 2, _value); // value to string
     
@@ -1044,7 +1042,7 @@ void process_triggers(uint8_t _address, char _type, uint8_t _number, float _valu
                 if ((trigger[_trigger].setting) >> 4 & B1) {
                   trigger[_trigger].setting |= (1 << 3); // switch ON passed
                 }
-                PublishNode(_update_node);
+                PublishNode(_update_node); // MQTT
               }
             }
           } //_found
@@ -1085,7 +1083,7 @@ void process_triggers(uint8_t _address, char _type, uint8_t _number, float _valu
               else               { node[_update_node].value = trigger[_trigger].constant_off; }
               trigger[_trigger].setting &= ~(1 << 5); // switch OFF Is alerted/triggered
               trigger[_trigger].setting &= ~(1 << 3); // switch OFF passed
-              PublishNode(_update_node);
+              PublishNode(_update_node); // MQTT
             }
           } //_found
         } // if 
@@ -1340,9 +1338,9 @@ NIL_THREAD(TimeThread, arg) {
 //------------------------------------------------------------------------------
 // Alarm Events
 //
-NIL_WORKING_AREA(waAEThread1, 64);
-NIL_WORKING_AREA(waAEThread2, 64);
-NIL_WORKING_AREA(waAEThread3, 64);
+NIL_WORKING_AREA(waAEThread1, 90);
+NIL_WORKING_AREA(waAEThread2, 90);
+NIL_WORKING_AREA(waAEThread3, 90);
 NIL_THREAD(thdFcn, name) {
   uint8_t _group, _wait, _resp, _cnt;
 
@@ -1653,6 +1651,9 @@ NIL_THREAD(LoggerThread, arg) {
         if (conf.alerts[alert_email] >> ALERT_TRIGGER & B1) alert_type |= (1 << alert_email); // Set On
         if (conf.alerts[alert_page] >> ALERT_TRIGGER & B1) alert_type |= (1 << alert_page); // Set On  
       break;
+      case 'C': // SMS commands
+        alert_type |= (1 << alert_SMS); // Set always On
+      break;
     }
     log_message[4] = alert_type;
 
@@ -1751,6 +1752,7 @@ NIL_THREAD(AlertThread, arg) {
   if (GSMisAlive == 1) {
     //GSMsetSMS = GSM.ATsendCmd(AT_CLIP_ON); 
     GSMsetSMS = GSM.ATsendCmd(AT_set_sms_to_text);
+    if (GSMsetSMS) GSMsetSMS = GSM.ATsendCmd(AT_set_sms_receive);
   }
   nilSemSignal(&GSMSem);  // Exit region.
  
@@ -1877,6 +1879,25 @@ NIL_THREAD(AlertThread, arg) {
           default : strcat_P(sms_text, (char*)text_unk); break;
         } 
       break;
+      case 'C': // SMS commands
+        _group = ((trigger[alert_message[7]].setting >> 1) & B1111); // only specific group
+        strcat_P(sms_text, (char*)text_Command); strcat_P(sms_text, (char*)text_sesp); 
+        switch(alert_message[7]){
+          case 'G' : strcat_P(sms_text, (char*)text_Group); strcat(sms_text, " ");
+            strcat(sms_text, conf.group_name[alert_message[8]]); strcat_P(sms_text, (char*)text_sesp);
+            (conf.group[alert_message[8]] & B1) ? strcat_P(sms_text, (char*)text_On) : strcat_P(sms_text, (char*)text_Off);
+            strcat_P(sms_text, (char*)text_cosp);
+            (group[alert_message[8]].setting & B1) ? strcat_P(sms_text, (char*)text_Armed) : strcat_P(sms_text, (char*)text_Disarmed);
+            strcat_P(sms_text, (char*)text_cosp);
+            (group[alert_message[8]].setting >> 1 & B1) ? strcat_P(sms_text, (char*)text_Alarm) : strcat_P(sms_text, (char*)text_OK);
+            break;
+          case 'I' : strcat_P(sms_text, (char*)text_Input);
+            strcat_P(sms_text, (char*)text_state); strcat(sms_text, " ");
+
+            break;
+          default : strcat_P(sms_text, (char*)text_unk); break;
+        } 
+      break;
     }
     strcat(sms_text, ".");
 
@@ -1890,12 +1911,10 @@ NIL_THREAD(AlertThread, arg) {
           nilSemWait(&GSMSem);    // wait for slot
           _status = GSM.ATsendSMSBegin(conf.tel_num[i]);
           WS.print(F("SMS begin: ")); WS.println(_status);
-          if (_status != 1) {
-            nilSemSignal(&GSMSem);  // Exit region.
-            break; 
+          if (_status == 1) {
+            _status = GSM.ATsendSMSEnd(sms_text);
+            WS.print(F("SMS sent: ")); WS.println(_status);  
           }
-          _status = GSM.ATsendSMSEnd(sms_text, true);
-          WS.print(F("SMS sent: ")); WS.println(_status);
           nilSemSignal(&GSMSem);  // Exit region.
         }
       }
@@ -2009,6 +2028,8 @@ NIL_THREAD(ServiceThread, arg) {
   char    _message[6];
   uint8_t _text[10];
   uint8_t _counter = 0; // used for pause in alarm
+  char *  _pch;
+  uint32_t group_aa;
 
   nilThdSleepSeconds(1); // Sleep before start service thread
   // Set timers on start
@@ -2030,7 +2051,8 @@ NIL_THREAD(ServiceThread, arg) {
     //count to 70 seconds, for delays in relay OUT
     _counter++; if (_counter == 70) {_counter = 0;}
 
-    // Auto arm
+    /*
+        // Auto arm
     for (int8_t i=0; i < ALR_ZONES ; i++){
       //   Zone enabled            auto arm                     
       if ((conf.zone[i] & B1) && ((conf.zone[i] >> 7) & B1)){ 
@@ -2053,6 +2075,43 @@ NIL_THREAD(ServiceThread, arg) {
           }
         }
       }
+    }
+    */
+    // New group aware auto arm   
+    for (int8_t i=0; i < ALR_GROUPS ; i++){
+      //   Group enabled    
+      if (conf.group[i] & B1){ 
+        //WS.print(F("Group: ")); WS.print(i);
+        group_aa = 0;
+        for (int8_t j=0; j < ALR_ZONES ; j++){
+          //   Zone enabled            auto arm                       group matches
+          if ((conf.zone[j] & B1) && ((conf.zone[j] >> 7) & B1) && (((conf.zone[j] >> 1) & B1111) == i)){
+            //WS.print(F(", zone: ")); WS.print(j);
+            //WS.print(F("=")); WS.print((zone[j].last_PIR + (conf.auto_arm * SECS_PER_MIN)));
+            //  Get latest PIR  
+            if ((zone[j].last_PIR + (conf.auto_arm * SECS_PER_MIN)) > group_aa) {
+              //WS.print(F(" AA"));
+              group_aa = (zone[j].last_PIR + (conf.auto_arm * SECS_PER_MIN));
+            }
+          }
+        } // list through zones
+        // auto arm group
+        //   Group has at leas one autoarm and time has passed
+        if ((group_aa != 0) && (group_aa <= timestamp.get())) {
+          //WS.print(F(" | IF")); 
+          //WS.print(F(" AA:")); WS.print(group_aa);
+          //WS.print(F(" TS:")); WS.print(timestamp.get());
+          // Only if group not armed already
+          if (!(group[i].setting & B1)) {
+            _tmp[0] = 'G'; _tmp[1] = 'A'; _tmp[2] = i; pushToLog(_tmp, 3); // Authorization auto arm
+            // No need to check if group is enabled again, or log error to log
+            group[i].setting |= (1 << 0); // arm group
+            group[i].arm_delay = 0;       // set arm delay off
+            _resp = sendCmdToGrp(i, 15);  // send arm message to all nodes
+          }
+        }
+        //WS.println(); 
+      } 
     }
 
     // Zone open alarm
@@ -2094,7 +2153,7 @@ NIL_THREAD(ServiceThread, arg) {
                 timer[i].setting |= (1 << 9); // Set triggered On
                 node[_update_node].last_OK = timestamp.get(); // update receiving node current timestamp
                 node[_update_node].value   = timer[i].constant_on; // update receiving node value
-                PublishNode(_update_node);
+                PublishNode(_update_node); // MQTT
               }
             }
           }
@@ -2121,7 +2180,7 @@ NIL_THREAD(ServiceThread, arg) {
               timer[i].setting &= ~(1 << 9); // Set triggered Off
               node[_update_node].last_OK = timestamp.get(); // update receiving node current timestamp
               node[_update_node].value   = timer[i].constant_off; // update receiving node value
-              PublishNode(_update_node);
+              PublishNode(_update_node); // MQTT
             }
           }
           set_timer(i, 0); // set next start time for this timer
@@ -2155,7 +2214,7 @@ NIL_THREAD(ServiceThread, arg) {
               trigger[i].next_off = 0; // Clear off timer
               node[_update_node].last_OK = timestamp.get(); // update receiving node current timestamp
               node[_update_node].value   = trigger[i].constant_off; // update receiving node value
-              PublishNode(_update_node);
+              PublishNode(_update_node); // MQTT
             }
           }
         }
@@ -2219,13 +2278,15 @@ NIL_THREAD(ServiceThread, arg) {
           if (!GSMsetSMS) {
             //GSMsetSMS = GSM.ATsendCmd(AT_CLIP_ON);             // CLI On
             GSMsetSMS = GSM.ATsendCmd(AT_set_sms_to_text); // set modem to text SMS format
+            //if (GSMsetSMS) GSMsetSMS = GSM.ATsendCmd(AT_set_sms_receive);
           }
           _resp = GSM.ATsendCmdWR(AT_registered, _text, 3); 
           GSMreg = strtol((char*)_text, NULL, 10);
           _resp = GSM.ATsendCmdWR(AT_signal_strength, _text, 2);
           GSMstrength = (strtol((char*)_text, NULL, 10)) * 3; 
-          //GSM.print("AT+CBAND=\"EGSM_MODE\"\r");
-          //GSM.print("AT+CGMR\r");
+          //GSM.print("AT&F\r");
+          //GSM.print("AT+CBAND=\"ALL_BAND\"\r");
+          //GSM.print("AT+CBAND?\r");
         } else { GSMreg = 4; GSMstrength = 0; GSMsetSMS = 0;}
         nilSemSignal(&GSMSem);  // Exit region.
         //WS.println("gsm slot exit");
@@ -2269,7 +2330,8 @@ NIL_THREAD(ServiceThread, arg) {
     }
 
     // Read GSM incomming messages
-    if (GSM.isMsg()) {
+    _update_node = 255; // Used here to indicate incomming SMS
+    while(GSM.isMsg()) {
       _resp = GSM.read((uint8_t*)sms_text);                     // read serial
       #if WEB_DEBUGGING
       WS.print(F(">GSM len: ")); WS.print(_resp); WS.print('>');
@@ -2278,7 +2340,71 @@ NIL_THREAD(ServiceThread, arg) {
       }
       WS.println(F("<"));
       #endif
-    }
+      // response is not empty string
+      if (_resp > 0) {
+        if (_update_node == 255) {
+          // Example: +CMT: "+420731435556","","17/05/29,15:31:47+08"
+          _pch = strtok(sms_text, ":");
+          if (_pch != NULL) {
+            if (strcmp(_pch, "+CMT") == 0) {
+              _pch = strtok(NULL, "\""); _pch = strtok(NULL, "\""); // extracat tel. number
+              WS.print(F(">SMS from: ")); WS.print(_pch); 
+              for (uint8_t i = 0; i < NUM_OF_PHONES; ++i) {
+                //  phone enabled          number does match
+                if ((conf.tel[i] & B1) && (strcmp(_pch, conf.tel_num[i]) == 0)) { 
+                  WS.print(F(" OK"));
+                  _update_node = i;
+                }
+              }
+              WS.println();
+            }
+          }
+        } else {
+          _pch = strtok(sms_text, " ");
+          if (_pch != NULL) {
+            WS.print(F(">SMS command: ")); WS.print(_pch); 
+            if (strcmp(_pch, "Group") == 0) {
+              _pch = strtok(NULL, " ");
+              WS.print(F(": ")); WS.print(_pch); 
+              for (uint8_t i = 0; i < ALR_GROUPS; ++i) {
+                //  name does match
+                if (strcmp(_pch, conf.group_name[i]) == 0) { 
+                  _pch = strtok(NULL, " ");
+                  WS.print(F(" Cmd: ")); WS.print(_pch); 
+                  // Get status
+                  if (strcmp(_pch, "state") == 0) {
+                    _tmp[0] = 'C'; _tmp[1] = _update_node; _tmp[2] = 'G'; _tmp[3] = i; _tmp[4] = 'S'; pushToLog(_tmp, 5);
+                  } else
+                  if (strcmp(_pch, "arm") == 0) {
+                    // if group enabled arm group or log error to log. 
+                    if (conf.group[i] & B1) { 
+                      group[i].setting |= (1 << 0);   // arm group
+                      group[i].arm_delay = conf.arm_delay; // set arm delay
+                      _resp = sendCmdToGrp(i, 10);  // send arming message to all nodes
+                    } 
+                    else { _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = i;  pushToLog(_tmp, 3); }
+                    _tmp[0] = 'C'; _tmp[1] = _update_node; _tmp[2] = 'G'; _tmp[3] = i; _tmp[4] = 'A'; pushToLog(_tmp, 5);
+                  } else
+                  if (strcmp(_pch, "disarm") == 0) {
+                    _tmp[0] = 'C'; _tmp[1] = _update_node; _tmp[2] = 'G'; _tmp[3] = i; _tmp[4] = 'D'; pushToLog(_tmp, 5);
+                  } 
+                  break; // no need to try other
+                }
+              } // for  
+            } // = group 
+            else if (strcmp(_pch, "Input") == 0) {
+              _pch = strtok(NULL, " ");
+              WS.print(F(": ")); WS.print(_pch); 
+              for (uint8_t i = 0; i < ALR_GROUPS; ++i) {
+
+              }
+            }
+            WS.println();
+          }
+          _update_node = 255; // reset 
+        } // Else line is SMS command
+      }
+    } // End GSM incoming
     
     //watchdog |= (1 << 2); // Flag watchdog for this thread
   }
@@ -2404,45 +2530,7 @@ NIL_THREAD(SensorThread, arg) {
         if (node[_node].setting & B1) { 
           node[_node].value   = p->value;
           node[_node].last_OK = timestamp.get();
-          
-          PublishNode(_node);
-          /*
-          //   MQTT connected           MQTT node enabled                   MQTT publish
-          if ((client.connected()) && ((node[_node].setting >> 7) & B1) && (conf.mqtt & B1)) {
-            _text[0] = 0;
-            // Create MQTT string
-            strcat(_text, str_MQTT_clientID); strcat(_text, "/");
-            switch(node[_node].function){
-              case 'I': strcat_P(_text, (char*)text_Input); break;
-              default : strcat_P(_text, (char*)text_Sensor); break;
-            }
-            strcat(_text, "/");
-            //strcat(_text, conf.group_name[(node[_node].setting >> 1) & B1111]); strcat(_text, "/");
-            strcat(_text, node[_node].name); strcat(_text, "/");
-            switch(node[_node].type){
-              case 'T': strcat_P(_text, (char*)text_Temperature); break;
-              case 'H': strcat_P(_text, (char*)text_Humidity); break;
-              case 'P': strcat_P(_text, (char*)text_Pressure); break;
-              case 'I': strcat_P(_text, (char*)text_Input); break;
-              case 'V': strcat_P(_text, (char*)text_Voltage); break;
-              case 'D': strcat_P(_text, (char*)text_Digital); break;
-              case 'A': strcat_P(_text, (char*)text_Analog); break;
-              case 'F': strcat_P(_text, (char*)text_Float); break;
-              case 'X': strcat_P(_text, (char*)text_TX_Power); break;
-              default : strcat_P(_text, (char*)text_Undefined); break;
-            }
-            strcat(_text, "/");
-            itoa(node[_node].number, _value, 10); strcat(_text, _value);
-            dtostrf(node[_node].value, 6, 2, _value); // value to string
-            
-            nilSemWait(&ETHSem);    // wait for slot
-            client.publish(_text,_value, true);
-            nilSemSignal(&ETHSem);  // Exit region.
-          }
-          if (!client.connected()) {
-            if (MQTTState) { pushToLog("SMF"); MQTTState = 0; }
-          } 
-          */
+          PublishNode(_node); // MQTT
           // Triggers
           process_triggers(node[_node].address, node[_node].type, node[_node].number, node[_node].value);
         } // node enbled

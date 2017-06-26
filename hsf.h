@@ -531,11 +531,10 @@ void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tai
              
         // print date and time
         l.b[0] = value[0]; l.b[1] = value[1]; l.b[2] = value[2]; l.b[3] = value[3];
-        if (l.lval > NTP_SECS_YR_1900_2000) time_temp.set(0); // Needed for fresh EEPROM, will show nonsense in all log entries.
+        if (l.lval >= NTP_SECS_YR_1900_2000) time_temp.set(0); // Needed for fresh EEPROM, will show nonsense in all log entries.
         else time_temp.set(l.lval);
         server.print((char*)time_temp.formatedDateTime()); server.printP(html_e_td_td);
 
-        uint8_t _requested = value[4]; // save requested for
         switch(value[5]){
           case 'S': // System
             server.printP(text_System); server.print(' ');
@@ -676,17 +675,18 @@ void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tai
             server.print(' '); server.printP(text_rejected);
           break;
           default:
+            server.printP(text_Undefined); server.printP(text_sesp);
             for (uint8_t i = 5; i < EEPROM_MESSAGE; ++i) {server << value[i];}
           break;
         }
         server.print('.');
         server.printP(html_e_td_td);
         n = 0;
-        if ((_requested >> alert_SMS) & B1)   { server.printP(text_SMS); n = 1; }
-        if ((_requested >> alert_email) & B1) { 
+        if ((value[4] >> alert_SMS) & B1)   { server.printP(text_SMS); n = 1; }
+        if ((value[4] >> alert_email) & B1) { 
           if (n) server.printP(text_cosp);
           server.printP(text_Email); n = 1; }
-        if ((_requested >> alert_page) & B1)  { 
+        if ((value[4] >> alert_page) & B1)  { 
           if (n) server.printP(text_cosp);
           server.printP(text_Page); }
         server.printP(html_e_td_e_tr);
