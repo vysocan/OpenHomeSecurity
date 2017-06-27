@@ -109,7 +109,7 @@ void setDefault(){
       //                 ||||||- Free
       //                 |||||||- PIR as Tamper
       //                 ||||||||- Still open alarm         
-      //                 ||||||||         |- Auto arm zone
+      //                 ||||||||         |- Free
       //                 ||||||||         |||- Auth time
       //                 ||||||||         |||- 0-3x the default time
       //                 ||||||||         |||||||- Group number
@@ -145,7 +145,7 @@ void setDefault(){
   //                  ||||||||- Free
   //                  ||||||||         |- MQTT publish
   //                  ||||||||         ||- Free
-  //                  ||||||||         |||- Free
+  //                  ||||||||         |||- Auto arm
   //                  ||||||||         ||||- PIR signal output 1 
   //                  ||||||||         |||||- PIR signal output 2
   //                  ||||||||         ||||||-  Tamper signal output 1 

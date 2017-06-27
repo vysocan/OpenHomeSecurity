@@ -761,7 +761,7 @@ void webSetZone(WebServer &server, WebServer::ConnectionType type, char *url_tai
         server.printP(html_table_tr_th_hash); server.printP(text_Name); 
         server.printP(html_e_th_th); server.printP(text_On);        
         server.printP(html_e_th_th); server.printP(text_Type);
-        server.printP(html_e_th_th); server.printP(text_Auto); server.print(' '); server.printP(text_arm);
+        //server.printP(html_e_th_th); server.printP(text_Auto); server.print(' '); server.printP(text_arm);
         server.printP(html_e_th_th); server.printP(text_Open); server.print(' '); server.printP(text_alarm);
         server.printP(html_e_th_th); server.printP(text_Alarm); server.print(' '); server.printP(text_as); server.print(' '); server.printP(text_tamper);
         server.printP(html_e_th_th); server.printP(text_Delay);
@@ -778,7 +778,7 @@ void webSetZone(WebServer &server, WebServer::ConnectionType type, char *url_tai
             server << conf.zone_name[i]; server.printP(html_e_td_td);
             (conf.zone[i] & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
             (conf.zone[i] >> 15) ? server.printP(text_analog) : server.printP(text_digital); server.printP(html_e_td_td);
-            ((conf.zone[i] >> 7) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
+            //((conf.zone[i] >> 7) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
             ((conf.zone[i] >> 8) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
             ((conf.zone[i] >> 9) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
             server << (((conf.zone[i] >> 5) & B11)*conf.alr_time); server.print(' '); server.printP(text_seconds); server.printP(html_e_td_td);
@@ -827,9 +827,9 @@ void webSetZone(WebServer &server, WebServer::ConnectionType type, char *url_tai
         server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Type); server.printP(html_e_td_td);
         ((conf.zone[webZone] >> 15) & B1) ? server.printP(text_analog) : server.printP(text_digital); server.printP(html_e_td_e_tr_tr_td);        
-        server.printP(text_Auto); server.print(' '); server.printP(text_arm); server.printP(html_e_td_td);
-        print_OnOffbutton(server, "7", conf.zone[webZone] >> 7 & B1);
-        server.printP(html_e_td_e_tr_tr_td);
+        //server.printP(text_Auto); server.print(' '); server.printP(text_arm); server.printP(html_e_td_td);
+        //print_OnOffbutton(server, "7", conf.zone[webZone] >> 7 & B1);
+        //server.printP(html_e_td_e_tr_tr_td);
         server.printP(text_Open); server.print(' '); server.printP(text_alarm); server.printP(html_e_td_td);
         print_OnOffbutton(server, "8", conf.zone[webZone] >> 8 & B1);
         server.printP(html_e_td_e_tr_tr_td);
@@ -915,8 +915,9 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
       server.printP(html_table_tr_th_hash); server.printP(text_Name); 
       server.printP(html_e_th_th); server.printP(text_On);
       server.printP(html_e_th_th); server.printP(text_Armed);
-      //server.printP(html_e_th_th); server.printP(text_Authentication);
+      //server.printP(html_e_th_th); server.printP(text_Authentication);      
       server.printP(html_e_th_th); server.printP(text_Delay);
+      server.printP(html_e_th_th); server.printP(text_Auto); server.print(' '); server.printP(text_arm);
       server.printP(html_e_th_th); server.printP(text_Arm);
       server.printP(html_e_th_th); server.printP(text_Disarm);
       server.printP(html_e_th_th); server.printP(text_i_zone); server.print(' '); server.printP(text_Zone); server.print('s');
@@ -935,6 +936,7 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
         (group[i].setting & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
         //((group[i].setting >> 2) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
         server << group[i].arm_delay/4; server.print(' '); server.printP(text_seconds); server.printP(html_e_td_td);
+        ((conf.group[i] >> 5) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
         if (((conf.group[i] >> 8) & B1111) != i) {
           server << ((conf.group[i] >> 8) & B1111) + 1; server.printP(text_spdashsp); server << conf.group_name[((conf.group[i] >> 8) & B1111)];
         } else { server.printP(text_spdashsp); }
@@ -1012,6 +1014,9 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Group); server.print(' '); server.printP(text_is); server.printP(html_e_td_td);
       print_OnOffbutton(server, "0", conf.group[webGroup] & B1);
+      server.printP(html_e_td_e_tr_tr_td);
+      server.printP(text_Auto); server.print(' '); server.printP(text_arm); server.printP(html_e_td_td);
+      print_OnOffbutton(server, "5", conf.group[webGroup] >> 5 & B1);
       server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Alarm); server.print(' '); server.printP(text_trigger); server << "s "; server.printP(text_OUT1); server.printP(html_e_td_td);
       print_OnOffbutton(server, "4", conf.group[webGroup] >> 4 & B1);

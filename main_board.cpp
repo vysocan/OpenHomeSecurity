@@ -2079,13 +2079,13 @@ NIL_THREAD(ServiceThread, arg) {
     */
     // New group aware auto arm   
     for (int8_t i=0; i < ALR_GROUPS ; i++){
-      //   Group enabled    
-      if (conf.group[i] & B1){ 
+      //   Group enabled            group auto arm
+      if ((conf.group[i] & B1) && ((conf.group[i] >> 5) & B1)){ 
         //WS.print(F("Group: ")); WS.print(i);
         group_aa = 0;
         for (int8_t j=0; j < ALR_ZONES ; j++){
-          //   Zone enabled            auto arm                       group matches
-          if ((conf.zone[j] & B1) && ((conf.zone[j] >> 7) & B1) && (((conf.zone[j] >> 1) & B1111) == i)){
+          //   Zone enabled             group matches
+          if ((conf.zone[j] & B1) && (((conf.zone[j] >> 1) & B1111) == i)){
             //WS.print(F(", zone: ")); WS.print(j);
             //WS.print(F("=")); WS.print((zone[j].last_PIR + (conf.auto_arm * SECS_PER_MIN)));
             //  Get latest PIR  
