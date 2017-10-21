@@ -2,6 +2,7 @@
 #define defaults_h
 
 #define ALR_ZONES      50        // Active zones
+#define HW_ZONES       13        // Last hardware zone index in array
 #define NUM_OF_KEYS    20        // max number of keys
 #define KEY_LEN        8         // key 
 #define NUM_OF_PHONES  10        // max number of phones
@@ -23,7 +24,7 @@
 #define ALR_OK        380
 #define ALR_OK_HI     490
 
-#define VERSION       175         // EEPROM config version
+#define VERSION       176         // EEPROM config version
 
 #define REG_LEN       22          // Size of one conf. element comming from nodes + 1 
 
@@ -77,6 +78,7 @@ struct config_t {
   uint8_t  time_dst_month;     //1=Jan, 2=Feb, ... 12=Dec
   uint8_t  time_dst_hour;      //0-23
   int16_t  time_dst_offset;    //offset from UTC in minutes
+  uint8_t  zone_address[ALR_ZONES-HW_ZONES];  // remote zone address
 } conf;
 
 void setDefault(){
@@ -104,8 +106,8 @@ void setDefault(){
       //                 |- Digital 0/ Analog 1
       //                 ||- Present - connected
       //                 |||- TWI zone
-      //                 ||||- Wireless zone
-      //                 |||||- Free
+      //                 ||||- Remote zone
+      //                 |||||- Battery node, they will not send OK only PIR and Tamper
       //                 ||||||- Free
       //                 |||||||- PIR as Tamper
       //                 ||||||||- Still open alarm         
@@ -130,6 +132,7 @@ void setDefault(){
         break;
       default: 
          conf.zone[i] = B00000000 << 8 | B00011110; // Other zones
+         conf.zone_address[i-HW_ZONES] = 0;
         break;
     }
   }
@@ -157,13 +160,8 @@ void setDefault(){
   }
 
   conf.ee_pos = 0;
-//encryption is OPTIONAL
-//to enable encryption you will need to:
-// - provide a 16-byte encryption KEY (same on all nodes that talk encrypted)
-// - to call .Encrypt(KEY) to start encrypting
-// - to stop encrypting call .Encrypt(NULL)
   conf.radioKey[0] = '-'; conf.radioKey[1] = 0;
-  conf.mqtt_ip[0] = 10; conf.mqtt_ip[1] = 10; conf.mqtt_ip[2] = 10; conf.mqtt_ip[3] = 126;
+  conf.mqtt_ip[0] = 10; conf.mqtt_ip[1] = 10; conf.mqtt_ip[2] = 10; conf.mqtt_ip[3] = 127;
   conf.mqtt_port = 1883;
   conf.mqtt = 0;
   conf.ip[0]      = 0;       conf.ip[1] = 0;       conf.ip[2] = 0;       conf.ip[3] = 0;

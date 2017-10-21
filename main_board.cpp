@@ -38,7 +38,7 @@
 #ifdef TEST
 static uint8_t mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xAD };  // CHANGE THIS TO YOUR OWN UNIQUE VALUE
 #else
-static uint8_t mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xFD };  // CHANGE THIS TO YOUR OWN UNIQUE VALUE
+static uint8_t mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xFD };  // 0xFE
 #endif
 
 // Global configuration and default setting
@@ -81,8 +81,10 @@ char str_MQTT_clientID[]  = "OHS";
 char str_MQTT_Subscribe[] = "OHS/In/#";
 #endif
 EthernetClient MQTTethClient;
-
 PubSubClient client(MQTTethClient);
+
+char _p_text[60];
+char _p_value[12];
 
 //SMTP
 #include <Client.h>
@@ -173,8 +175,8 @@ struct zone_t {
   uint32_t last_OK  = 0;
   char last_event   = 'N';
   //                   |- Full fifo queue flag
-  //                   ||- Free
-  //                   |||- Free
+  //                   ||- Message queue
+  //                   |||- Error flag, for remote zone
   //                   ||||- Free
   //                   |||||- Free
   //                   ||||||- Free 
@@ -249,7 +251,7 @@ struct sensor_t {
   uint8_t number   = 0;
   float   value    = 0;
 };
-NilFIFO<node_t, 15> sensor_fifo;
+NilFIFO<node_t, 10> sensor_fifo;
 
 // Registration fifo
 struct register_t {
@@ -413,15 +415,6 @@ void pushToLog(char *what, uint8_t size = 0){
   memcpy(p->text, l.b, 4);         // copy timestamp, p->text[4] = 0 already set 
   memmove(p->text+5, what, size);  // copy "what"
 
-  /* Replaced by memcpy and memmove
-  p->text[0] = l.b[0]; p->text[1] = l.b[1]; p->text[2] = l.b[2]; p->text[3] = l.b[3];
-  p->text[4] = 0; 
-  while ((_pos-5 < size) && (_pos < EEPROM_MESSAGE)) {
-    p->text[_pos] = what[_pos-5];
-    //WS.print(p->text[_pos]);WS.print(F("-")); WS.print(p->text[_pos], DEC);WS.print(F(", "));
-    _pos++;
-  }
-  */
   log_fifo.signalData();  // Signal idle thread data is available.
 }
 
@@ -432,6 +425,7 @@ static bool waitForAck(uint8_t nodeID) {
     nilThdSleepMilliseconds(5);
     if (radio.ACKReceived(nodeID)) return true;
     _try++;
+    WS.print('.');
   } 
   return false;
 }
@@ -447,7 +441,7 @@ uint8_t sendCmd(uint8_t node, uint8_t cmd){
     TX_msg.data_length = cmd;
     _resp = RS485.msg_write(&TX_msg);
     WS.print(node); WS.print(F(",")); 
-    WS.print(F(" W:")); WS.println(_resp);
+    WS.print(F(" W:")); WS.print(_resp);
   }
   // Radio
   if (node == RADIO_UNIT_OFFSET) { // allow command to be send to radio broadcast
@@ -469,7 +463,7 @@ uint8_t sendCmd(uint8_t node, uint8_t cmd){
     _resp = waitForAck(node-RADIO_UNIT_OFFSET);
     if (!_resp) ++radio_no_ack;
     nilSemSignal(&RFMSem);  // Exit region.
-    WS.print(node-RADIO_UNIT_OFFSET); WS.print(F(",")); 
+    WS.print(F(" R:"));WS.print(node-RADIO_UNIT_OFFSET); WS.print(F(",")); 
     WS.print(F(" RC:")); WS.println(_resp);
   }
   return _resp;
@@ -480,7 +474,10 @@ uint8_t sendData(uint8_t node, char *data, uint8_t length){
   uint8_t _resp = 0;
   uint8_t _try = 0;
   #ifdef WEB_DEBUGGING
-  WS.print(F("Data to node: ")); WS.print(node); WS.print(F(", len:")); WS.print(length);
+  WS.print(F("Data to node: ")); 
+  if (node > RADIO_UNIT_OFFSET) WS.print(node-RADIO_UNIT_OFFSET);
+  else WS.print(node);
+  WS.print(F(", len:")); WS.print(length);
   for (uint8_t i=0; i < length; i++){
     WS.print(F("-")); WS.print((uint8_t)data[i],HEX); 
   }
@@ -589,7 +586,7 @@ void clearLog(){
 //day of week, 0=Sun, 1=Mon, ... 6=Sat
 //1=Jan, 2=Feb, ... 12=Dec
 //0-23 
-DateTime CalculateDST(uint16_t year, uint8_t week, uint8_t dow, uint8_t month, uint8_t hour){
+DateTime calculateDST(uint16_t year, uint8_t week, uint8_t dow, uint8_t month, uint8_t hour){
   uint8_t _m = month, _w = week;  //temp copies of month and week
   
   if (_w == 0) {          //Last week = 0
@@ -609,7 +606,7 @@ DateTime CalculateDST(uint16_t year, uint8_t week, uint8_t dow, uint8_t month, u
   return _t;
 }
 
-DateTime GetNTPTime(UDP &udp){
+DateTime getNTPTime(UDP &udp){
   if (!udp.begin(NTP_LOCAL_PORT)) return 0; // Fail if WiFiUdp.begin() could not init a socket
   udp.flush();              // Clear received data from possible stray received packets
   
@@ -658,9 +655,9 @@ DateTime GetNTPTime(UDP &udp){
   time_temp.set(time + (conf.time_std_offset * SECS_PER_MIN));
   //WS.print(F("Local: ")); WS.println(time_temp.formatedDateTime());
 
-  time_dst = CalculateDST(time_temp.year(), conf.time_dst_week, conf.time_dst_dow,
+  time_dst = calculateDST(time_temp.year(), conf.time_dst_week, conf.time_dst_dow,
                            conf.time_dst_month, conf.time_dst_hour);
-  time_std = CalculateDST(time_temp.year(), conf.time_std_week, conf.time_std_dow,
+  time_std = calculateDST(time_temp.year(), conf.time_std_week, conf.time_std_dow,
                           conf.time_std_month, conf.time_std_hour);
   //WS.print(F("DST End: ")); WS.println(time_std.formatedDateTime());  
   //WS.print(F("DST Start: ")); WS.println(time_dst.formatedDateTime());  
@@ -678,75 +675,79 @@ DateTime GetNTPTime(UDP &udp){
   //return time - NTP_SECS_YR_1900_2000 + ((conf.time_zone + ((conf.setting >> 1) & B1)) * SECS_PER_MIN); // convert NTP time to seconds after 2000
   return time_temp;
 }
-
-void PublishNode(uint8_t _node){
-  char _text[40];
-  char _value[10];
-  //   MQTT connected           MQTT node enabled                   MQTT publish
-  if ((client.connected()) && ((node[_node].setting >> 7) & B1) && (conf.mqtt & B1)) {
-    _text[0] = 0;
-    // Create MQTT string
-    strcat(_text, str_MQTT_clientID); strcat(_text, "/");
-    switch(node[_node].function){
-      case 'I': strcat_P(_text, (char*)text_Input); break;
-      default : strcat_P(_text, (char*)text_Sensor); break;
-    }
-    strcat(_text, "/");
-    //strcat(_text, conf.group_name[(node[_node].setting >> 1) & B1111]); strcat(_text, "/");
-    strcat(_text, node[_node].name); strcat(_text, "/");
-    switch(node[_node].type){
-      case 'T': strcat_P(_text, (char*)text_Temperature); break;
-      case 'H': strcat_P(_text, (char*)text_Humidity); break;
-      case 'P': strcat_P(_text, (char*)text_Pressure); break;
-      case 'I': strcat_P(_text, (char*)text_Input); break;
-      case 'V': strcat_P(_text, (char*)text_Voltage); break;
-      case 'D': strcat_P(_text, (char*)text_Digital); break;
-      case 'A': strcat_P(_text, (char*)text_Analog); break;
-      case 'F': strcat_P(_text, (char*)text_Float); break;
-      case 'X': strcat_P(_text, (char*)text_TX_Power); break;
-      default : strcat_P(_text, (char*)text_Undefined); break;
-    }
-    strcat(_text, "/");
-    itoa(node[_node].number, _value, 10); strcat(_text, _value);
-    // For Digital nodes we publish 0 or 1 not float string
-    if (node[_node].type == 'D') dtostrf(node[_node].value, 1, 0, _value); // value to string
-    else                         dtostrf(node[_node].value, 6, 2, _value); // value to string
-    
-    nilSemWait(&ETHSem);    // wait for slot
-    client.publish(_text,_value, true);
-    nilSemSignal(&ETHSem);  // Exit region.
-  }
-  if (!client.connected()) {
-    if (MQTTState) { pushToLog("SMF"); MQTTState = 0; }
-  } 
+void publishPrepare(uint8_t _group){
+  _p_text[0] = 0;
+  // Create MQTT string
+  strcat(_p_text, str_MQTT_clientID); strcat(_p_text, "/");
+  strcat(_p_text, conf.group_name[_group]); strcat(_p_text, "/");
 }
 
-void PublishGroup(uint8_t _group, char state){
-  char _text[40];
-  char _value[10];
-  //   MQTT connected           MQTT publish group
-  if ((client.connected()) && ((conf.mqtt >> 3) & B1)) {
-    _text[0] = 0;
-    // Create MQTT string
-    strcat(_text, str_MQTT_clientID); strcat(_text, "/");
-    strcat_P(_text, (char*)text_Group); strcat(_text, "/");
-    strcat(_text, conf.group_name[_group]); strcat(_text, "/");
-    strcat_P(_text, (char*)text_state); 
-    _value[0] = 0;
-    switch(state){
-      case 'A': strcat_P(_value, (char*)text_armed_away); break;
-      case 'D': strcat_P(_value, (char*)text_disarmed); break;
-      case 'T': strcat_P(_value, (char*)text_triggered); break;
-      case 'P': strcat_P(_value, (char*)text_pending); break;
-      default : strcat_P(_value, (char*)text_undefined); break;
+void publishNode(uint8_t _node){
+  //   MQTT connected           MQTT node enabled                   MQTT publish
+  if ((client.connected()) && ((node[_node].setting >> 7) & B1) && (conf.mqtt & B1)) {
+    publishPrepare((node[_node].setting >> 1) & B1111); 
+    switch(node[_node].function){
+      case 'I': strcat_P(_p_text, (char*)text_Input); break;
+      default : strcat_P(_p_text, (char*)text_Sensor); break;
     }
+    strcat(_p_text, "/");
+    strcat(_p_text, node[_node].name); strcat(_p_text, "/");
+    switch(node[_node].type){
+      case 'T': strcat_P(_p_text, (char*)text_Temperature); break;
+      case 'H': strcat_P(_p_text, (char*)text_Humidity); break;
+      case 'P': strcat_P(_p_text, (char*)text_Pressure); break;
+      case 'I': strcat_P(_p_text, (char*)text_Input); break;
+      case 'V': strcat_P(_p_text, (char*)text_Voltage); break;
+      case 'D': strcat_P(_p_text, (char*)text_Digital); break;
+      case 'A': strcat_P(_p_text, (char*)text_Analog); break;
+      case 'F': strcat_P(_p_text, (char*)text_Float); break;
+      case 'X': strcat_P(_p_text, (char*)text_TX_Power); break;
+      case 'G': strcat_P(_p_text, (char*)text_Gas); break;
+      default : strcat_P(_p_text, (char*)text_Undefined); break;
+    }
+    strcat(_p_text, "/");
+    itoa(node[_node].number, _p_value, 10); strcat(_p_text, _p_value);
+    // For Digital nodes we publish 0 or 1 not float string
+    if (node[_node].type == 'D') dtostrf(node[_node].value, 1, 0, _p_value); // value to string
+    else                         dtostrf(node[_node].value, 6, 2, _p_value); // value to string
+    
     nilSemWait(&ETHSem);    // wait for slot
-    client.publish(_text,_value, true);
+    if (!client.publish(_p_text,_p_value, true)) {
+      pushToLog("SMF"); MQTTState = 0;
+    }
     nilSemSignal(&ETHSem);  // Exit region.
   }
+  /*
   if (!client.connected()) {
     if (MQTTState) { pushToLog("SMF"); MQTTState = 0; }
   } 
+  */
+}
+
+void publishGroup(uint8_t _group, char state){
+  //   MQTT connected           MQTT publish group
+  if ((client.connected()) && ((conf.mqtt >> 3) & B1)) {
+    publishPrepare(_group); strcat_P(_p_text, (char*)text_state); 
+    _p_value[0] = 0;
+    switch(state){
+      case 'A': strcat_P(_p_value, (char*)text_armed_away); break;
+      case 'H': strcat_P(_p_value, (char*)text_armed_home); break;
+      case 'D': strcat_P(_p_value, (char*)text_disarmed); break;
+      case 'T': strcat_P(_p_value, (char*)text_triggered); break;
+      case 'P': strcat_P(_p_value, (char*)text_pending); break;
+      default : strcat_P(_p_value, (char*)text_undefined); break;
+    }
+    nilSemWait(&ETHSem);    // wait for slot
+    if (!client.publish(_p_text, _p_value, true)) {
+      pushToLog("SMF"); MQTTState = 0;
+    }
+    nilSemSignal(&ETHSem);  // Exit region.
+  }
+  /*
+  if (!client.connected()) {
+    if (MQTTState) { pushToLog("SMF"); MQTTState = 0; }
+  } 
+  */
 }
 
 
@@ -754,14 +755,14 @@ void PublishGroup(uint8_t _group, char state){
 void callback(char* topic, byte* payload, unsigned int length) {
   uint8_t _resp, _found, _number, _i, _update_node;
   char * _pch;
-  char _text[40];
+  //char _text[40];
   char _message[6];
   // In order to republish this payload, a copy must be made
   // as the orignal payload buffer will be overwritten whilst
   // constructing the PUBLISH packet.
   
-  if (length >= 40) length = 39;
-  strncpy(_text, (char*)payload, length); _text[length] = 0;
+  //if (length >= 40) length = 39;
+  //strncpy(_text, (char*)payload, length); _text[length] = 0;
   //WS.print(topic); WS.print(F(" >")); WS.print(_text); WS.print(F("< len:")); WS.println(length);
 
   // get topic
@@ -772,7 +773,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (_pch != NULL) {
     WS.print(_pch); WS.print(F(":"));
     // Pass to Input node
-    if ((strcmp(_pch, "Input") == 0) && (conf.mqtt >> 1) & B1)  {
+    if ((strcmp_P(_pch, (char*)text_Input) == 0) && (conf.mqtt >> 1) & B1)  {
       _pch = strtok(NULL, "/");
       WS.print(_pch); WS.print(F(":"));
       if (_pch != NULL) {
@@ -806,12 +807,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
                   node[_update_node].number   == _number &&
                   node[_update_node].setting & B1) {
                 _found = 1;
-                WS.print(F(":Found "));
+                WS.println(F(":OK "));
                 break;
               }
             }
             if (_found) {
-              u.fval = atof(_text);                         // convert payload to float
+              u.fval = atof((char*)payload);                         // convert payload to float
               _message[0] = 'I'; // 'I'nput only
               _message[1] = _number;
               _message[2] = u.b[0]; _message[3] = u.b[1]; _message[4] = u.b[2]; _message[5] = u.b[3];
@@ -831,8 +832,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
       }
     }
     // Send SMS
-    else if ((strcmp(_pch, "SMS") == 0) && (conf.mqtt >> 2) & B1) {
-
+    else if ((strcmp_P(_pch, (char*)text_SMS) == 0) && (conf.mqtt >> 2) & B1) {
+      // ToDo
+      // Create MQTT to SMS forwarding
     }
   }
   /*while (_pch != NULL){
@@ -853,8 +855,8 @@ inline void a3_to_a4(unsigned char * a4, unsigned char * a3) {
   a4[3] =  (a3[2] & 0x3f);
 }
 
-//uint8_t base64_encode(char *output, char *input, uint8_t inputLen) {
-void base64_encode(char *output, char *input, uint8_t inputLen) {  
+//uint8_t base64Encode(char *output, char *input, uint8_t inputLen) {
+void base64Encode(char *output, char *input, uint8_t inputLen) {  
   uint8_t i = 0, j = 0, encLen = 0;
   unsigned char a3[3];
   unsigned char a4[4];
@@ -883,14 +885,14 @@ void base64_encode(char *output, char *input, uint8_t inputLen) {
 //  return encLen;
 }
 
-void set_timer(uint8_t _timer, uint8_t _restart = 1) {
+void setTimer(uint8_t _timer, uint8_t _restart = 1) {
   uint8_t _day, _found;
   uint32_t _add, _tmpt;
   time_temp = timestamp; // .get();
 
   // Calendar
   if (timer[_timer].setting >> 1 & B1) {
-    WS.print(F("CAL# ")); WS.print(_timer);
+    WS.print(F("CAL# ")); WS.print(_timer+1);
     _day = time_temp.dayOfWeek(); _found = 0; _add = 0;
     WS.print(F(" Today: ")); WS.print(_day);
     for (uint8_t i = 0; i < 8; i++) {
@@ -918,7 +920,7 @@ void set_timer(uint8_t _timer, uint8_t _restart = 1) {
     WS.println();
   // Period
   } else {
-    WS.print(F("Period# ")); WS.print(_timer);
+    WS.print(F("Period# ")); WS.print(_timer+1);
     switch(timer[_timer].setting >> 12 & B11){
       case 0:  _add = (uint32_t)timer[_timer].period; break;
       case 1:  _add = (uint32_t)timer[_timer].period*SECS_PER_MIN; break;
@@ -956,7 +958,7 @@ void set_timer(uint8_t _timer, uint8_t _restart = 1) {
   timer[_timer].setting &= ~(1 << 9); // switch OFF Is triggered
 }
 
-void process_triggers(uint8_t _address, char _type, uint8_t _number, float _value) {
+void processTriggers(uint8_t _address, char _type, uint8_t _number, float _value) {
   uint8_t _trigger, _found, _update_node;
   uint32_t _add;
   float _to_compare;
@@ -1042,7 +1044,7 @@ void process_triggers(uint8_t _address, char _type, uint8_t _number, float _valu
                 if ((trigger[_trigger].setting) >> 4 & B1) {
                   trigger[_trigger].setting |= (1 << 3); // switch ON passed
                 }
-                PublishNode(_update_node); // MQTT
+                publishNode(_update_node); // MQTT
               }
             }
           } //_found
@@ -1083,7 +1085,7 @@ void process_triggers(uint8_t _address, char _type, uint8_t _number, float _valu
               else               { node[_update_node].value = trigger[_trigger].constant_off; }
               trigger[_trigger].setting &= ~(1 << 5); // switch OFF Is alerted/triggered
               trigger[_trigger].setting &= ~(1 << 3); // switch OFF passed
-              PublishNode(_update_node); // MQTT
+              publishNode(_update_node); // MQTT
             }
           } //_found
         } // if 
@@ -1142,6 +1144,7 @@ NIL_THREAD(ZoneThread, arg) {
         group[i].arm_delay--;
         if (!group[i].arm_delay) { 
           _resp = sendCmdToGrp(i, 15);  // send arm message to all nodes
+          publishGroup(i, 'A');
           _tmp[0] = 'G'; _tmp[1] = 'S'; _tmp[2] = i;  pushToLog(_tmp, 3);
         }
       }
@@ -1149,21 +1152,38 @@ NIL_THREAD(ZoneThread, arg) {
    
     //WS.print(F("Zone: "));
     for (int8_t i=0; i < ALR_ZONES ; i++){  
-      if (conf.zone[i] & B1){           // Zone enabled ?
+      // Zone enabled ?
+      if (conf.zone[i] & B1){           
         //WS.print(i+1); WS.print(F(":"));
-        if (conf.zone[i] >> 15){        // Digital 0/ Analog 1 
-          nilSemWait(&ADCSem);          // Wait for slot
-          val = nilAnalogRead(i);
-          nilSemSignal(&ADCSem);        // Exit region.
+        // Remote zone
+        if ((conf.zone[i] >> 12) & B1) { 
+          // Switch battery zone back to OK after 2 seconds, as battery nodes will not send OK
+          if ((((conf.zone[i] >> 11) & B1) == 1) &&
+             (zone[i].last_event != 'O') && (zone[i].last_PIR + 2 < timestamp.get())) {
+            zone[i].last_event = 'O';
+            zone[i].last_OK = timestamp.get();    // update current timestamp
+          }
+          switch(zone[i].last_event) {
+            case 'O': val = ALR_OK; break;
+            case 'P': val = ALR_PIR; break;
+            default:  val = 0; break;
+          }
+        // Local 
         } else {
-          switch(i) {
-            case 8:  pinIN1.read() ? val = ALR_PIR : val = ALR_OK; break;
-            case 9:  pinIN2.read() ? val = ALR_PIR : val = ALR_OK; break;
-            case 10: pinIN3.read() ? val = ALR_PIR : val = ALR_OK; break;
-            case 11: pinIN4.read() ? val = ALR_PIR : val = ALR_OK; break;
-            case 12: pinIN5.read() ? val = ALR_PIR : val = ALR_OK; break;
-            default: break;
-          } 
+          if ((conf.zone[i] >> 15) & B1){        // Digital 0/ Analog 1 
+            nilSemWait(&ADCSem);          // Wait for slot
+            val = nilAnalogRead(i);
+            nilSemSignal(&ADCSem);        // Exit region.
+          } else {
+            switch(i) {
+              case 8:  pinIN1.read() ? val = ALR_PIR : val = ALR_OK; break;
+              case 9:  pinIN2.read() ? val = ALR_PIR : val = ALR_OK; break;
+              case 10: pinIN3.read() ? val = ALR_PIR : val = ALR_OK; break;
+              case 11: pinIN4.read() ? val = ALR_PIR : val = ALR_OK; break;
+              case 12: pinIN5.read() ? val = ALR_PIR : val = ALR_OK; break;
+              default: break;
+            } 
+          }
         }
         //    alarm as tamper              is PIR                                    make it tmaper
         if (((conf.zone[i] >> 9) & B1) && (val >= ALR_PIR_LOW && val <= ALR_PIR_HI)) val += ALR_PIR;
@@ -1175,8 +1195,11 @@ NIL_THREAD(ZoneThread, arg) {
           case ALR_OK_LOW ... ALR_OK_HI:
             //WS.print(F("O,"));
             // All is OK no action
-            zone[i].last_event = 'O';
-            zone[i].last_OK = timestamp.get();    // update current timestamp
+            // Battery node, they will not send OK only PIR and Tamper 
+            if (((conf.zone[i] >> 11) & B1) != 1) {
+              zone[i].last_event = 'O';
+              zone[i].last_OK = timestamp.get();    // update current timestamp
+            }
             break;
           case ALR_PIR_LOW ... ALR_PIR_HI:
             //WS.println(); WS.print(F("Zone:")); WS.print(i);
@@ -1212,8 +1235,11 @@ NIL_THREAD(ZoneThread, arg) {
                 }
               }
             }
-            zone[i].last_event = 'P';
-            zone[i].last_PIR = timestamp.get();    // update current timestamp
+            // Battery node, they will not send OK only PIR and Tamper 
+            if (((conf.zone[i] >> 11) & B1) != 1) {
+              zone[i].last_event = 'P';
+              zone[i].last_PIR = timestamp.get();    // update current timestamp
+            }
             break;
           default: // Line is cut or short or tamper, no difference to alarm event
             //WS.print(F("T,"));
@@ -1229,7 +1255,7 @@ NIL_THREAD(ZoneThread, arg) {
               } else {
                 if (zone[i].last_event == 'T') {
                   //WS.println(F(">T"));
-                  WS.print(F("Zone:")); WS.print(i); WS.print(F("T:")); WS.print(val);
+                  //WS.print(F("Zone:")); WS.print(i); WS.print(F("T:")); WS.print(val);
                   alarm_event_t* p = alarm_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
                   if (p == 0) {
                     if (!((zone[i].setting >> 7) & B1)) {
@@ -1246,15 +1272,18 @@ NIL_THREAD(ZoneThread, arg) {
                 }
               }
             }
-            zone[i].last_event = 'T';
-            zone[i].last_PIR = timestamp.get();    // update current timestamp
+            // Battery node, they will not send OK only PIR and Tamper 
+            if (((conf.zone[i] >> 11) & B1) != 1) {
+              zone[i].last_event = 'T';
+              zone[i].last_PIR = timestamp.get();    // update current timestamp
+            }
             break;
           }    
         
         // Triggers
         if (zone[i].last_event == 'O') val = 0;
         else val = 1;
-        process_triggers(0, 'Z', i, (float)val);
+        processTriggers(0, 'Z', i, (float)val);
       } // zone enabled ?
     } // for (zones)
     //WS.println();
@@ -1280,9 +1309,9 @@ NIL_THREAD(TimeThread, arg) {
   // Set started timestamp
   time_started = timestamp;
   // Set DST
-  time_dst = CalculateDST(timestamp.year(), conf.time_dst_week, conf.time_dst_dow,
+  time_dst = calculateDST(timestamp.year(), conf.time_dst_week, conf.time_dst_dow,
                           conf.time_dst_month, conf.time_dst_hour);
-  time_std = CalculateDST(timestamp.year(), conf.time_std_week, conf.time_std_dow,
+  time_std = calculateDST(timestamp.year(), conf.time_std_week, conf.time_std_dow,
                           conf.time_std_month, conf.time_std_hour);
   _year = timestamp.year();
   //WS.print(F("DST End: ")); WS.println(time_std.formatedDateTime());
@@ -1324,9 +1353,9 @@ NIL_THREAD(TimeThread, arg) {
       timestamp = RTC.now();
       nilSemSignal(&TWISem);   // Exit region.
       if (_year != timestamp.year()) {
-        time_dst = CalculateDST(timestamp.year(), conf.time_dst_week, conf.time_dst_dow,
+        time_dst = calculateDST(timestamp.year(), conf.time_dst_week, conf.time_dst_dow,
                                 conf.time_dst_month, conf.time_dst_hour);
-        time_std = CalculateDST(timestamp.year(), conf.time_std_week, conf.time_std_dow,
+        time_std = calculateDST(timestamp.year(), conf.time_std_week, conf.time_std_dow,
                                 conf.time_std_month, conf.time_std_hour);
         _year = timestamp.year();
       }
@@ -1345,7 +1374,7 @@ NIL_THREAD(thdFcn, name) {
   uint8_t _group, _wait, _resp, _cnt;
 
   #ifdef WEB_DEBUGGING
-  WS.print((char*)name);  WS.println(F(" started"));
+  WS.print((char*)name); WS.println(F(" started"));
   #endif
   
   while (TRUE) {
@@ -1373,7 +1402,9 @@ NIL_THREAD(thdFcn, name) {
     //       wait > 0     NOT group has alarm already              Authentication On   
     while ((_wait > 0) && !((group[_group].setting >> 1) & B1) && (group[_group].setting >> 2 & B1)) {
       _resp = sendCmdToGrp(_group, 11 + _wait);
+      #ifdef WEB_DEBUGGING
       WS.print((char*)name); WS.print(F(" w:")); WS.println(_wait);
+      #endif
       _cnt = 0;
       //       Authentication On                   time of one alarm period      NOT group has alarm already
       while ((group[_group].setting >> 2 & B1) && (_cnt < (10*conf.alr_time)) && !((group[_group].setting >> 1) & B1)) {
@@ -1398,6 +1429,7 @@ NIL_THREAD(thdFcn, name) {
       // Trigger OUT 1 & 2              
       pinOUT1.write(((OUTs >> 0) & B1));
       pinOUT2.write(((OUTs >> 1) & B1));
+      publishGroup(_group, 'T');
       _tmp[0] = 'S'; _tmp[1] = 'X';  _tmp[2] = _group;  pushToLog(_tmp, 3); // ALARM no auth.
     }
     //WS.print((char*)name); WS.println(F(" end"));
@@ -1406,10 +1438,76 @@ NIL_THREAD(thdFcn, name) {
   }
 }
 
+void disarmGroup(uint8_t _group, uint8_t _master = 255, uint8_t _hop = 0) {
+  uint8_t _resp = 0;
+  // we have alarm
+  if ((group[_group].setting) >> 1 & B1) { 
+    group[_group].setting &= ~(1 << 1);    // set group alarm off
+    /* *** ToDo: add bitwise reset of OUTs instead of full reset ? */
+    OUTs = 0; // Reset outs  
+    pinOUT1.write(LOW); pinOUT2.write(LOW); // Turn off OUT 1 & 2
+  }
+  // set each member zone of this group as alarm off
+  for (uint8_t j=0; j < ALR_ZONES; j++){
+    if (((conf.zone[j] >> 1) & B1111) == _group) zone[j].setting &= ~(1 << 1); 
+  }
+  group[_group].setting &= ~(1 << 0); // disarm group
+  group[_group].setting &= ~(1 << 2); // set auth bit off
+  group[_group].arm_delay = 0;        // Reset arm delay
+  _resp = sendCmdToGrp(_group, 20);   // send quiet message to all nodes
+  publishGroup(_group, 'D');
+  _tmp[0] = 'G'; _tmp[1] = 'D'; _tmp[2] = _group; pushToLog(_tmp, 3); // Group disarmed
+  // If Disarm another group is set and another group is not original(_master)
+  // and hop is lower then ALR_GROUPS
+  _resp = ((conf.group[_group] >> 12) & B1111); // Temp variable
+  if ((_resp != _group) &&
+     (_resp != _master) &&
+     (_master !=  255) && 
+     (_hop <= ALR_GROUPS)) {
+    _hop++; // Increase hop; not working directly in armGroup()
+    #ifdef WEB_DEBUGGING
+    WS.print(F("Group disarm next ")); WS.print(_resp); 
+    WS.print(F(", master ")); WS.print(_master); 
+    WS.print(F(", hop ")); WS.print(_hop); WS.println();
+    #endif
+    disarmGroup(_resp, _master, _hop); 
+  }
+}
+
+void armGroup(uint8_t _group, uint8_t _master = 255, uint8_t _hop = 0) {
+  uint8_t _resp = 0;
+  // if group enabled arm group or log error to log. 
+  if (conf.group[_group] & B1) { 
+    // Group not armed already
+    if (!(group[_group].setting & B1)) {
+      group[_group].setting |= (1 << 0);        // arm group
+      group[_group].arm_delay = conf.arm_delay; // set arm delay
+      _resp = sendCmdToGrp(_group, 10);         // send arming message to all nodes
+      publishGroup(_group, 'P');
+    }
+  } 
+  else { _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = _group;  pushToLog(_tmp, 3); }
+  // If Arm another group is set and another group is not original(_master)
+  // and hop is lower then ALR_GROUPS
+  _resp = ((conf.group[_group] >> 8) & B1111); // Temp variable
+  if ((_resp != _group) &&
+     (_resp != _master) &&
+     (_master !=  255) && 
+     (_hop <= ALR_GROUPS)) {
+    _hop++; // Increase hop; not working directly in armGroup()
+    #ifdef WEB_DEBUGGING
+    WS.print(F("Group arm next ")); WS.print(_resp); 
+    WS.print(F(", master ")); WS.print(_master); 
+    WS.print(F(", hop ")); WS.print(_hop); WS.println();
+    #endif
+    armGroup(_resp, _master, _hop); 
+  }
+}
+
 //------------------------------------------------------------------------------
 // RS485 receiver thread
 //
-NIL_WORKING_AREA(waRS485RXThread, 64);
+NIL_WORKING_AREA(waRS485RXThread, 90);
 NIL_THREAD(RS485RXThread, arg) {
   uint8_t _resp = 0; 
   uint8_t _group = 255;
@@ -1456,32 +1554,11 @@ NIL_THREAD(RS485RXThread, arg) {
                  ((_group == ((conf.key_setting[i] >> 1) & B1111)) || ((conf.key_setting[i] >> 5) & B1))) {
                 //     we have alarm                     or   group is armed
                 if  (((group[_group].setting) >> 1 & B1) || ((group[_group].setting) & B1)) { 
-                  // we have alarm
-                  if ((group[_group].setting) >> 1 & B1) { 
-                    group[_group].setting &= ~(1 << 1);    // set group alarm off
-                    /* *** ToDo: add bitwise reset of OUTs instead of full reset ? */
-                    OUTs = 0; // Reset outs  
-                    pinOUT1.write(LOW); pinOUT2.write(LOW); // Turn off OUT 1 & 2
-                  }
-                  // set each member zone of this group as alarm off
-                  for (uint8_t j=0; j < ALR_ZONES; j++){
-                    if (((conf.zone[j] >> 1) & B1111) == _group) zone[j].setting &= ~(1 << 1); 
-                  }
-                  group[_group].setting &= ~(1 << 0);    // disarm group
-                  group[_group].setting &= ~(1 << 2);    // set auth bit off
-                  group[_group].arm_delay = 0;       // Reset arm delay
-                  _resp = sendCmdToGrp(_group, 20);  // send quiet message to all nodes
                   _tmp[0] = 'A'; _tmp[1] = 'D'; _tmp[2] = i;  pushToLog(_tmp, 3); // Key
-                  _tmp[0] = 'G'; _tmp[1] = 'D'; _tmp[2] = _group;   pushToLog(_tmp, 3); // Group
+                  disarmGroup(_group, _group); // Disarm group and all chained groups
                 } else { // Just do arm
                   _tmp[0] = 'A'; _tmp[1] = 'A'; _tmp[2] = i; _tmp[3] = 0; pushToLog(_tmp);
-                  // if group enabled arm group or log error to log. 
-                  if (conf.group[_group] & B1) { 
-                    group[_group].setting |= (1 << 0);   // arm group
-                    group[_group].arm_delay = conf.arm_delay; // set arm delay
-                    _resp = sendCmdToGrp(_group, 10);  // send arming message to all nodes
-                  } 
-                  else { _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = _group;  pushToLog(_tmp, 3); }
+                  armGroup(_group, _group); // Arm group and all chained groups
                 }
                 break; // no need to try other
               } else { // key is not enabled
@@ -1547,6 +1624,43 @@ NIL_THREAD(RS485RXThread, arg) {
         _pos+=6;
       } while (_pos < RX_msg.data_length);
     } // if 'S'
+    // Zone data
+    if ((RX_msg.ctrl == FLAG_DTA) && (RX_msg.buffer[0] == 'Z')){
+      _pos = 1;
+      do {
+        // Zone allowed
+        if ((RX_msg.buffer[_pos] <= ALR_ZONES) && (RX_msg.buffer[_pos] > HW_ZONES)) {
+          // Zone enabled  
+          if ((conf.zone[RX_msg.buffer[_pos]] & B1) == 1) {
+            // Zone address and sender address match & zone is remote zone 
+            if ((conf.zone_address[RX_msg.buffer[_pos]-HW_ZONES] == RX_msg.address) && 
+               (((conf.zone[RX_msg.buffer[_pos]] >> 12) & B1) == 1)){
+              zone[RX_msg.buffer[_pos]].last_event = RX_msg.buffer[_pos+1];
+              if (RX_msg.buffer[_pos+1] == 'O') {
+                zone[RX_msg.buffer[_pos]].last_OK  = timestamp.get();    // update current timestamp
+              } else {
+                zone[RX_msg.buffer[_pos]].last_PIR = timestamp.get();    // update current timestamp
+              }
+            } else {
+              // Log error just once
+              if (((zone[RX_msg.buffer[_pos]].setting >> 5) & B1) == 0) {
+                _tmp[0] = 'Z'; _tmp[1] = 'e'; _tmp[2] = RX_msg.buffer[_pos]; _tmp[3] = 'M'; pushToLog(_tmp, 4); 
+                zone[RX_msg.buffer[_pos]].setting |= (1 << 5); // Set error flag
+                //WS.println(F("Z-NM"));
+              }
+            }
+          } // zone enabled
+        } else {
+          // Log error just once
+          if (((zone[RX_msg.buffer[_pos]].setting >> 5) & B1) == 0) {
+            _tmp[0] = 'Z'; _tmp[1] = 'e'; _tmp[2] = RX_msg.buffer[_pos]; _tmp[3] = 'N'; pushToLog(_tmp, 4); 
+            zone[RX_msg.buffer[_pos]].setting |= (1 << 5); // Set error flag
+            //WS.println(F("Z-NA"));
+          }              
+        }
+        _pos+=2;
+      } while (_pos < RX_msg.data_length);
+    } // if 'Z'
   }
 }
 
@@ -1572,6 +1686,11 @@ NIL_THREAD(LoggerThread, arg) {
       case 'S': // System
         switch(log_message[6]){
           case 'B': // Battery
+            /* Not verified and take more flash space then 3x if bellow!
+            alert_type = (conf.alerts[alert_SMS] >> ALERT_BATERY_STATE & B1) 
+                       | ((conf.alerts[alert_email] >> ALERT_BATERY_STATE & B1) << alert_email)
+                       | ((conf.alerts[alert_page] >> ALERT_BATERY_STATE & B1) << alert_page);
+            */            
             if (conf.alerts[alert_SMS] >> ALERT_BATERY_STATE & B1) alert_type |= (1 << alert_SMS); // Set On
             if (conf.alerts[alert_email] >> ALERT_BATERY_STATE & B1) alert_type |= (1 << alert_email); // Set On
             if (conf.alerts[alert_page] >> ALERT_BATERY_STATE & B1) alert_type |= (1 << alert_page); // Set On
@@ -1728,7 +1847,7 @@ int16_t readStatus() {
   return strtol(line, NULL, 10);
 }
 
-void smtp_escape(uint8_t _state) {
+void smtpEscape(uint8_t _state) {
   SMTPethClient.stop();
   nilSemSignal(&ETHSem);  // Exit region.
   WS.println(F("Email End"));
@@ -1880,7 +1999,6 @@ NIL_THREAD(AlertThread, arg) {
         } 
       break;
       case 'C': // SMS commands
-        _group = ((trigger[alert_message[7]].setting >> 1) & B1111); // only specific group
         strcat_P(sms_text, (char*)text_Command); strcat_P(sms_text, (char*)text_sesp); 
         switch(alert_message[7]){
           case 'G' : strcat_P(sms_text, (char*)text_Group); strcat(sms_text, " ");
@@ -1932,28 +2050,28 @@ NIL_THREAD(AlertThread, arg) {
       // Send Email
       nilSemWait(&ETHSem);    // wait for slot
       SMTPethClient.connect("mail.smtp2go.com", 2525);
-      if (readStatus() != 220 ) { smtp_escape(1); _smtp_go = 0; }
+      if (readStatus() != 220 ) { smtpEscape(1); _smtp_go = 0; }
       if (_smtp_go) { 
         SMTPethClient.println(F("EHLO"));
-        if (readStatus() != 250 ) { smtp_escape(2); _smtp_go = 0; }
+        if (readStatus() != 250 ) { smtpEscape(2); _smtp_go = 0; }
       }
       if (_smtp_go) {
         SMTPethClient.println(F("auth login"));
-        if (readStatus() != 334 ) { smtp_escape(3); _smtp_go = 0; }
+        if (readStatus() != 334 ) { smtpEscape(3); _smtp_go = 0; }
       }
       if (_smtp_go) { 
-        b64_text[0] = 0; base64_encode(b64_text, conf.SMTP_user, strlen(conf.SMTP_user));
+        b64_text[0] = 0; base64Encode(b64_text, conf.SMTP_user, strlen(conf.SMTP_user));
         SMTPethClient.println(b64_text);
-        if (readStatus() != 334 ) { smtp_escape(4); _smtp_go = 0; }
+        if (readStatus() != 334 ) { smtpEscape(4); _smtp_go = 0; }
       }
       if (_smtp_go) { 
-        b64_text[0] = 0; base64_encode(b64_text, conf.SMTP_password, strlen(conf.SMTP_password));
+        b64_text[0] = 0; base64Encode(b64_text, conf.SMTP_password, strlen(conf.SMTP_password));
         SMTPethClient.println(b64_text);
-        if (readStatus() != 235 ) { smtp_escape(5); _smtp_go = 0; }
+        if (readStatus() != 235 ) { smtpEscape(5); _smtp_go = 0; }
       }
       if (_smtp_go) { 
         SMTPethClient.print(F("MAIL FROM:<")); SMTPethClient.print(conf.SMTP_user); SMTPethClient.println(F(">"));
-        if (readStatus() != 250 ) { smtp_escape(6); _smtp_go = 0; }
+        if (readStatus() != 250 ) { smtpEscape(6); _smtp_go = 0; }
       }
       for (uint8_t i = 0; i < NUM_OF_PHONES; ++i) {
         //  phone enabled              specific group                       or global tel.
@@ -1961,13 +2079,13 @@ NIL_THREAD(AlertThread, arg) {
           if (_smtp_go) { 
             SMTPethClient.print(F("RCPT TO:<")); SMTPethClient.print(conf.email[i]); SMTPethClient.println(F(">"));
             // OK status is 25*
-            if ((readStatus()/10) != 25 ) { smtp_escape(7); _smtp_go = 0; }
+            if ((readStatus()/10) != 25 ) { smtpEscape(7); _smtp_go = 0; }
           }
         }
       }    
       if (_smtp_go) {   
         SMTPethClient.println(F("DATA"));
-        if (readStatus() != 354 ) { smtp_escape(8); _smtp_go = 0; }
+        if (readStatus() != 354 ) { smtpEscape(8); _smtp_go = 0; }
       }
       if (_smtp_go) { 
         SMTPethClient.print(F("From: ")); SMTPethClient.println(conf.SMTP_user);
@@ -1981,11 +2099,11 @@ NIL_THREAD(AlertThread, arg) {
         SMTPethClient.println();
         SMTPethClient.print(F("Subject: ")); SMTPethClient.println(sms_text);
         SMTPethClient.println(); SMTPethClient.println(F("."));
-        if (readStatus() != 250 ) { smtp_escape(9); _smtp_go = 0; }
+        if (readStatus() != 250 ) { smtpEscape(9); _smtp_go = 0; }
       }
       if (_smtp_go) {
         WS.println(F("OK"));
-        smtp_escape(0);
+        smtpEscape(0);
       }
     }
 
@@ -2029,13 +2147,13 @@ NIL_THREAD(ServiceThread, arg) {
   uint8_t _text[10];
   uint8_t _counter = 0; // used for pause in alarm
   char *  _pch;
-  uint32_t group_aa;
+  uint32_t group_aa;    // temp var. for Auto arm
 
   nilThdSleepSeconds(1); // Sleep before start service thread
   // Set timers on start
   for (int8_t i=0; i < TIMERS ; i++){
     //  timer enabled
-    if (timer[i].setting & B1) set_timer(i);
+    if (timer[i].setting & B1) setTimer(i);
   }
 
   nilThdSleepSeconds(1); // Sleep before start service thread
@@ -2051,69 +2169,37 @@ NIL_THREAD(ServiceThread, arg) {
     //count to 70 seconds, for delays in relay OUT
     _counter++; if (_counter == 70) {_counter = 0;}
 
-    /*
-        // Auto arm
-    for (int8_t i=0; i < ALR_ZONES ; i++){
-      //   Zone enabled            auto arm                     
-      if ((conf.zone[i] & B1) && ((conf.zone[i] >> 7) & B1)){ 
-        if ( timestamp.get() >= (zone[i].last_PIR + (conf.auto_arm * SECS_PER_MIN))) {
-          uint8_t _group = (conf.zone[i] >> 1) & B1111;
-          // Only if group not armed already
-          if (!(group[_group].setting & B1)) {
-            _tmp[0] = 'G'; _tmp[1] = 'A'; _tmp[2] = _group; pushToLog(_tmp, 3); // Authorization auto arm
-            // if group is enabled arm zone's group else log error to log
-            if (conf.group[_group] & B1) { 
-              group[_group].setting |= (1 << 0); // arm group
-              group[_group].arm_delay = 0;       // set arm delay off
-              _resp = sendCmdToGrp(_group, 15);  // send arm message to all nodes
-            } else {
-              if (!((group[_group].setting >> 7) & B1)) {
-                group[_group].setting |= (1 << 7); // Set logged disabled bit On
-                _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = _group; pushToLog(_tmp, 3);
-              }
-            }
-          }
-        }
-      }
-    }
-    */
     // New group aware auto arm   
     for (int8_t i=0; i < ALR_GROUPS ; i++){
       //   Group enabled            group auto arm
       if ((conf.group[i] & B1) && ((conf.group[i] >> 5) & B1)){ 
-        //WS.print(F("Group: ")); WS.print(i);
         group_aa = 0;
         for (int8_t j=0; j < ALR_ZONES ; j++){
           //   Zone enabled             group matches
           if ((conf.zone[j] & B1) && (((conf.zone[j] >> 1) & B1111) == i)){
-            //WS.print(F(", zone: ")); WS.print(j);
-            //WS.print(F("=")); WS.print((zone[j].last_PIR + (conf.auto_arm * SECS_PER_MIN)));
             //  Get latest PIR  
             if ((zone[j].last_PIR + (conf.auto_arm * SECS_PER_MIN)) > group_aa) {
-              //WS.print(F(" AA"));
               group_aa = (zone[j].last_PIR + (conf.auto_arm * SECS_PER_MIN));
             }
           }
         } // list through zones
         // auto arm group
-        //   Group has at leas one autoarm and time has passed
+        //   Group has at least one autoarm && time has passed
         if ((group_aa != 0) && (group_aa <= timestamp.get())) {
-          //WS.print(F(" | IF")); 
-          //WS.print(F(" AA:")); WS.print(group_aa);
-          //WS.print(F(" TS:")); WS.print(timestamp.get());
           // Only if group not armed already
           if (!(group[i].setting & B1)) {
             _tmp[0] = 'G'; _tmp[1] = 'A'; _tmp[2] = i; pushToLog(_tmp, 3); // Authorization auto arm
-            // No need to check if group is enabled again, or log error to log
+            armGroup(i);
+            /*
+            // No need to check again if group is enabled again, or log error to log
             group[i].setting |= (1 << 0); // arm group
             group[i].arm_delay = 0;       // set arm delay off
             _resp = sendCmdToGrp(i, 15);  // send arm message to all nodes
+            */
           }
         }
-        //WS.println(); 
       } 
     }
-
     // Zone open alarm
     for (int8_t i=0; i < ALR_ZONES ; i++){
       //   Zone enabled      and   open alarm enabled
@@ -2153,7 +2239,7 @@ NIL_THREAD(ServiceThread, arg) {
                 timer[i].setting |= (1 << 9); // Set triggered On
                 node[_update_node].last_OK = timestamp.get(); // update receiving node current timestamp
                 node[_update_node].value   = timer[i].constant_on; // update receiving node value
-                PublishNode(_update_node); // MQTT
+                publishNode(_update_node); // MQTT
               }
             }
           }
@@ -2180,10 +2266,10 @@ NIL_THREAD(ServiceThread, arg) {
               timer[i].setting &= ~(1 << 9); // Set triggered Off
               node[_update_node].last_OK = timestamp.get(); // update receiving node current timestamp
               node[_update_node].value   = timer[i].constant_off; // update receiving node value
-              PublishNode(_update_node); // MQTT
+              publishNode(_update_node); // MQTT
             }
           }
-          set_timer(i, 0); // set next start time for this timer
+          setTimer(i, 0); // set next start time for this timer
         }
       }
     }
@@ -2214,7 +2300,7 @@ NIL_THREAD(ServiceThread, arg) {
               trigger[i].next_off = 0; // Clear off timer
               node[_update_node].last_OK = timestamp.get(); // update receiving node current timestamp
               node[_update_node].value   = trigger[i].constant_off; // update receiving node value
-              PublishNode(_update_node); // MQTT
+              publishNode(_update_node); // MQTT
             }
           }
         }
@@ -2278,7 +2364,7 @@ NIL_THREAD(ServiceThread, arg) {
           if (!GSMsetSMS) {
             //GSMsetSMS = GSM.ATsendCmd(AT_CLIP_ON);             // CLI On
             GSMsetSMS = GSM.ATsendCmd(AT_set_sms_to_text); // set modem to text SMS format
-            //if (GSMsetSMS) GSMsetSMS = GSM.ATsendCmd(AT_set_sms_receive);
+            if (GSMsetSMS) GSMsetSMS = GSM.ATsendCmd(AT_set_sms_receive); // Set modem to dump SMS to serial
           }
           _resp = GSM.ATsendCmdWR(AT_registered, _text, 3); 
           GSMreg = strtol((char*)_text, NULL, 10);
@@ -2312,13 +2398,13 @@ NIL_THREAD(ServiceThread, arg) {
       if (!client.connected()) {
         //client.disconnect(); // This have problems with Teensy Eth.
         client.setServer(conf.mqtt_ip, conf.mqtt_port);
-        WS.print(F(">Eth. down"));
+        WS.print(F("-Eth. down"));
         if (!client.connect(str_MQTT_clientID)) {
           WS.print(F(", state: ")); WS.print(client.state());
           Ethernet.begin(mac, conf.ip, conf.gw, conf.gw, conf.mask); // Ethernet
-          WS.println(F(", restart."));
+          WS.println(F(", restarted"));
         } else {
-          WS.println(F(", renew."));
+          WS.println(F(", OK"));
           if (!MQTTState){
             client.subscribe(str_MQTT_Subscribe);
             pushToLog("SMO");
@@ -2334,7 +2420,7 @@ NIL_THREAD(ServiceThread, arg) {
     while(GSM.isMsg()) {
       _resp = GSM.read((uint8_t*)sms_text);                     // read serial
       #if WEB_DEBUGGING
-      WS.print(F(">GSM len: ")); WS.print(_resp); WS.print('>');
+      WS.print(F("-GSM len: ")); WS.print(_resp); WS.print('>');
       for(uint8_t i = 0; i < _resp; i++) {
         WS.print((char)sms_text[i]);
       }
@@ -2346,14 +2432,14 @@ NIL_THREAD(ServiceThread, arg) {
           // Example: +CMT: "+420731435556","","17/05/29,15:31:47+08"
           _pch = strtok(sms_text, ":");
           if (_pch != NULL) {
-            if (strcmp(_pch, "+CMT") == 0) {
+            if (strcmp_P(_pch, (char*)AT_CMT) == 0) {
               _pch = strtok(NULL, "\""); _pch = strtok(NULL, "\""); // extracat tel. number
-              WS.print(F(">SMS from: ")); WS.print(_pch); 
+              WS.print(F("-SMS from: ")); WS.print(_pch); 
               for (uint8_t i = 0; i < NUM_OF_PHONES; ++i) {
                 //  phone enabled          number does match
                 if ((conf.tel[i] & B1) && (strcmp(_pch, conf.tel_num[i]) == 0)) { 
                   WS.print(F(" OK"));
-                  _update_node = i;
+                  _update_node = i; // Store index of tel. number
                 }
               }
               WS.println();
@@ -2362,8 +2448,9 @@ NIL_THREAD(ServiceThread, arg) {
         } else {
           _pch = strtok(sms_text, " ");
           if (_pch != NULL) {
-            WS.print(F(">SMS command: ")); WS.print(_pch); 
-            if (strcmp(_pch, "Group") == 0) {
+            WS.print(F("-SMS command: ")); WS.print(_pch); 
+            //  Group
+            if (strcmp_P(_pch, (char*)text_Group) == 0) {
               _pch = strtok(NULL, " ");
               WS.print(F(": ")); WS.print(_pch); 
               for (uint8_t i = 0; i < ALR_GROUPS; ++i) {
@@ -2372,27 +2459,32 @@ NIL_THREAD(ServiceThread, arg) {
                   _pch = strtok(NULL, " ");
                   WS.print(F(" Cmd: ")); WS.print(_pch); 
                   // Get status
-                  if (strcmp(_pch, "state") == 0) {
+                  if (strcmp_P(_pch, (char*)text_state) == 0) {
                     _tmp[0] = 'C'; _tmp[1] = _update_node; _tmp[2] = 'G'; _tmp[3] = i; _tmp[4] = 'S'; pushToLog(_tmp, 5);
                   } else
-                  if (strcmp(_pch, "arm") == 0) {
-                    // if group enabled arm group or log error to log. 
-                    if (conf.group[i] & B1) { 
-                      group[i].setting |= (1 << 0);   // arm group
-                      group[i].arm_delay = conf.arm_delay; // set arm delay
-                      _resp = sendCmdToGrp(i, 10);  // send arming message to all nodes
-                    } 
-                    else { _tmp[0] = 'G'; _tmp[1] = 'F'; _tmp[2] = i;  pushToLog(_tmp, 3); }
+                  if (strcmp_P(_pch, (char*)text_arm) == 0) {
+                    armGroup(i);
                     _tmp[0] = 'C'; _tmp[1] = _update_node; _tmp[2] = 'G'; _tmp[3] = i; _tmp[4] = 'A'; pushToLog(_tmp, 5);
                   } else
-                  if (strcmp(_pch, "disarm") == 0) {
+                  if (strcmp_P(_pch, (char*)text_disarm) == 0) {
+                    disarmGroup(i);
                     _tmp[0] = 'C'; _tmp[1] = _update_node; _tmp[2] = 'G'; _tmp[3] = i; _tmp[4] = 'D'; pushToLog(_tmp, 5);
+                  } else
+                  if (strcmp_P(_pch, (char*)text_Off) == 0) {
+                    disarmGroup(i);
+                    conf.group[i] &= ~(1 << 0);    // Turn group Off
+                    _tmp[0] = 'C'; _tmp[1] = _update_node; _tmp[2] = 'G'; _tmp[3] = i; _tmp[4] = 'F'; pushToLog(_tmp, 5);
+                  } else
+                  if (strcmp_P(_pch, (char*)text_On) == 0) {
+                    conf.group[i] |= (1 << 0);     // Turn group On
+                    _tmp[0] = 'C'; _tmp[1] = _update_node; _tmp[2] = 'G'; _tmp[3] = i; _tmp[4] = 'O'; pushToLog(_tmp, 5);
                   } 
                   break; // no need to try other
                 }
               } // for  
             } // = group 
-            else if (strcmp(_pch, "Input") == 0) {
+            // Input
+            else if (strcmp_P(_pch, (char*)text_Input) == 0) {
               _pch = strtok(NULL, " ");
               WS.print(F(": ")); WS.print(_pch); 
               for (uint8_t i = 0; i < ALR_GROUPS; ++i) {
@@ -2475,6 +2567,43 @@ NIL_THREAD(RadioThread, arg) {
             _pos+=6;
           } while (_pos < radio.DATALEN);
         } // if 'S'
+        // Zone data
+        if ((char)radio.DATA[0] == 'Z') {
+          _pos = 1;
+          do {
+            // Zone allowed
+            if ((radio.DATA[_pos] <= ALR_ZONES) && (radio.DATA[_pos] > HW_ZONES)) {
+              // Zone enabled  
+              if ((conf.zone[radio.DATA[_pos]] & B1) == 1) {
+                // Zone address and sender address match & zone is remote zone 
+                if ((conf.zone_address[radio.DATA[_pos]-HW_ZONES] == radio.SENDERID+RADIO_UNIT_OFFSET) && 
+                   (((conf.zone[radio.DATA[_pos]] >> 12) & B1) == 1)){
+                  zone[radio.DATA[_pos]].last_event = radio.DATA[_pos+1];
+                  if (radio.DATA[_pos+1] == 'O') {
+                    zone[radio.DATA[_pos]].last_OK  = timestamp.get();    // update current timestamp
+                  } else {
+                    zone[radio.DATA[_pos]].last_PIR = timestamp.get();    // update current timestamp
+                  }
+                } else {
+                  // Log error just once
+                  if (((zone[radio.DATA[_pos]].setting >> 5) & B1) == 0) {
+                    _tmp[0] = 'Z'; _tmp[1] = 'e'; _tmp[2] = radio.DATA[_pos]; _tmp[3] = 'M'; pushToLog(_tmp, 4); 
+                    zone[radio.DATA[_pos]].setting |= (1 << 5); // Set error flag
+                    //WS.println(F("Z-NM"));
+                  }
+                }
+              } // zone enabled
+            } else {
+              // Log error just once
+              if (((zone[radio.DATA[_pos]].setting >> 5) & B1) == 0) {
+                _tmp[0] = 'Z'; _tmp[1] = 'e'; _tmp[2] = radio.DATA[_pos]; _tmp[3] = 'N'; pushToLog(_tmp, 4); 
+                zone[radio.DATA[_pos]].setting |= (1 << 5); // Set error flag
+                //WS.println(F("Z-NA"));
+              }              
+            }
+            _pos+=2;
+          } while (_pos < radio.DATALEN);
+        } // if 'Z'
         if (radio.ACKRequested()) radio.sendACK();
       }
       nilSemSignal(&RFMSem);  // Exit region.
@@ -2484,7 +2613,12 @@ NIL_THREAD(RadioThread, arg) {
           if (sendData(node_queue[_pos].address, node_queue[_pos].msg, node_queue[_pos].length)) {
             node_queue[_pos].expire  = 0; // mark as empty
             node_queue[_pos].address = 0; // mark as empty
-            node[node_queue[_pos].index].queue = 255; // Clear node queued flag 
+            //  is it node or zone
+            if (node_queue[_pos].index > NODES) {
+              zone[webZone].setting &= ~(1 << 6); // Clear queue flag
+            } else {
+              node[node_queue[_pos].index].queue = 255; // Clear node queued flag 
+            }
           }
           break; // we can send only one queued message to single address as we are in reciever thread
         }
@@ -2501,8 +2635,6 @@ NIL_WORKING_AREA(waSensorThread, 160);
 NIL_THREAD(SensorThread, arg) {
   uint8_t _node, _found, _lastNode = 0;
   uint32_t _lastNodeTime = 0;
-  //char _text[40];
-  //char _value[10];
 
   #ifdef WEB_DEBUGGING
   WS.println(F("Sensor thread started"));    
@@ -2530,14 +2662,15 @@ NIL_THREAD(SensorThread, arg) {
         if (node[_node].setting & B1) { 
           node[_node].value   = p->value;
           node[_node].last_OK = timestamp.get();
-          PublishNode(_node); // MQTT
+          publishNode(_node); // MQTT
           // Triggers
-          process_triggers(node[_node].address, node[_node].type, node[_node].number, node[_node].value);
+          processTriggers(node[_node].address, node[_node].type, node[_node].number, node[_node].value);
         } // node enbled
         break; // no need to look for other node
       } // if address 
     } // for
     if (!_found) {
+      //WS.print(p->function); WS.print(':'); WS.print(p->address); WS.print(':'); WS.print(p->type); WS.print(':'); WS.print(p->number); WS.println(F("<-"));
       // Let's call same unknown node for reregistrtion only once a while or we send many packets if multiple sensor data come in
       if ((timestamp.get() > _lastNodeTime) || (_lastNode != p->address)) {
         nilThdSleepMilliseconds(5);  // Thid is needed for sleeping batery nodes !!! Or they wont see reg. command.
@@ -2560,7 +2693,7 @@ NIL_THREAD(RegThread, arg) {
   uint8_t _node, _resp;
 
   #ifdef WEB_DEBUGGING
-  WS.println(F("Registration thread started"));    
+  WS.println(F("Reg. thread started"));    
   #endif
 
   while (TRUE) {
@@ -2596,11 +2729,36 @@ NIL_THREAD(RegThread, arg) {
           // there is match already
           node[_node].setting  = p->setting;
           node[_node].last_OK  = timestamp.get();
+          node[_node].value    = 0; // Reset state
           strncpy(node[_node].name, p->name, NAME_LEN-1); node[_node].name[NAME_LEN-1] = 0;
           _tmp[0] = 'N'; _tmp[1] = 'r'; _tmp[2] = p->address; _tmp[3] = p->number; _tmp[4] = p->node; _tmp[5] = p->type; pushToLog(_tmp, 6);
           // WS.print(F("Rereg: ")); WS.println(_node+1); WS.print(node[_node].address); WS.print(node[_node].type);
           // WS.println(node[_node].number); WS.println(node[_node].setting,BIN); 
         }
+        break;
+        case 'Z': // Zone
+          _tmp[0] = 'Z'; // Log data
+          // Check if zone numer is allowed and not present as TWI zone
+          if ((p->number <= ALR_ZONES) && (p->number > HW_ZONES) &&
+             ((conf.zone[p->number] >> 13) & B1) != 1){
+            //   Zone already connected
+            if ((conf.zone[p->number] >> 14) & B1) { _tmp[1] = 'r'; } // Log data
+            else                                   { _tmp[1] = 'R'; } // Log data
+            // Reset zone status
+            zone[p->number].last_event = 'O';
+            zone[p->number].last_OK    = timestamp.get();    // update current timestamp
+            zone[p->number].last_PIR   = zone[p->number].last_OK;
+            zone[p->number].setting   &= ~(1 << 5);       // reset remote zone error flag
+            // Force and register
+            conf.zone[p->number]  = p->setting; // copy setting
+            conf.zone[p->number] |= (1 << 12);  // force "Remote zone"
+            conf.zone[p->number] |= (1 << 14);  // force "Present - connected"
+            if (p->type == 'A') conf.zone[p->number] |=  (1 << 15); // force "Analog"
+            else                conf.zone[p->number] &= ~(1 << 15); // force "Digital"
+            conf.zone_address[p->number-HW_ZONES] = p->address; // copy address
+            strncpy(conf.zone_name[p->number], p->name, NAME_LEN-1); conf.zone_name[p->number][NAME_LEN-1] = 0; // copy zone name
+          } else { _tmp[1] = 'E'; } // Log data
+          _tmp[2] = p->number; pushToLog(_tmp, 3);     
         break;
         default:
           _tmp[0] = 'N'; _tmp[1] = 'E'; _tmp[2] = p->address; _tmp[3] = p->number; _tmp[4] = p->node; _tmp[5] = p->type; pushToLog(_tmp, 6);
@@ -2706,8 +2864,8 @@ NIL_THREAD(DebugThread, arg) {
     setDefault();
     // encode default user pass 
     char _text[20]; _text[0] = 0;
-    strcat (_text, conf.user); strcat (_text, ":"); strcat (_text, conf.password);
-    base64_encode(conf.user_pass, _text, strlen(_text));
+    strcat(_text, conf.user); strcat(_text, ":"); strcat(_text, conf.password);
+    base64Encode(conf.user_pass, _text, strlen(_text));
   } else {
     // If not fresh install read other configuration
     eeprom_read_block((void*)&trigger, (void*)sizeof(conf), sizeof(trigger));
@@ -2717,11 +2875,18 @@ NIL_THREAD(DebugThread, arg) {
       trigger[_trigger].setting &= ~(1 << 3); // Passed
       trigger[_trigger].setting &= ~(1 << 5); // Is triggered
     }
+    // Force disconnect all remote zones
+    for (uint8_t i = HW_ZONES; i < ALR_ZONES; ++i) {
+      if ((conf.zone[i] >> 12) & B1) {
+        conf.zone[i] &= ~(1 << 0);  // disable
+        conf.zone[i] &= ~(1 << 14); // disconnect
+      }
+    }
   }
   // Read group state/setting if power was lost
   if ((conf.setting >> 0) & B1) {
     eeprom_read_block((void*)&group, (void*)sizeof(conf)+sizeof(trigger)+sizeof(timer), sizeof(group));
-    conf.setting |= (1 << 0); // Set it Off
+    conf.setting |= (1 << 0); // Set power state Off
   }
   
   GSM.begin(115200); // GSM modem or serial out

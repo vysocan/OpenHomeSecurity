@@ -30,11 +30,15 @@ P(text_loaded)         = "loaded";
 P(text_reset)          = "reset";
 P(text_armed)          = "armed";
 P(text_armed_away)     = "armed_away";
+P(text_armed_home)     = "armed_home";
+P(text_pending)        = "pending";
 P(text_Arm)            = "Arm";
 P(text_Disarm)         = "Disarm";
 P(text_Disarmed)       = "Disarmed";
 P(text_arm)            = "arm";
 P(text_Armed)          = "Armed";
+P(text_disarm)         = "disarm";
+P(text_disarmed)       = "disarmed";
 P(text_ALARM)          = "ALARM !!!";
 P(text_Monitoring)     = "Monitoring";
 P(text_monitoring)     = "monitoring";
@@ -49,46 +53,31 @@ P(text_Last)           = "Last";
 P(text_zone)           = "zone";
 P(text_Tamper)         = "Tamper";
 P(text_tamper)         = "tamper";
-P(text_Damaged)        = "Damaged";
+P(text_allowed)        = "allowed";
+P(text_matched)        = "matched";
 P(text_Authentication) = "Authentication";
 P(text_trigger)        = "trigger";
 P(text_triggered)      = "triggered";
 P(text_Trigger)        = "Trigger";
-P(text_pending)        = "pending";
 P(text_timer)          = "timer";
 P(text_Timer)          = "Timer";
 P(text_ed)             = "ed";
-P(text_disarmed)       = "disarmed";
 P(text_OK)             = "OK";
 P(text_not)            = "not";
 P(text_disabled)       = "disabled";
 P(text_enabled)        = "enabled";
 P(text_Enabled)        = "Enabled";
+P(text_local)          = "local";
+P(text_remote)         = "remote";
 P(text_all)            = "all";
 P(text_activated)      = "activated";
 P(text_de)             = "de";
 P(text_none)           = "none";
-P(text_Assoc)          = "Assoc.";
+P(text_Assoc)          = "Asc.";
 P(text_Hysteresis)     = "Hysteresis";
-
-P(text_i_OK)             = "<i class='fa fa-check'></i>";
-P(text_i_ALARM)          = "<i class='fa fa-bell'></i>";
-P(text_i_disabled)       = "<i class='fa fa-ban'></i>";
-P(text_i_starting)       = "<i class='fa fa-spinner fa-pulse'></i>";
-P(text_i_home)           = "<i class='fa fa-home'></i>";
-P(text_i_question)       = "<i class='fa fa-question'></i>";
-P(text_i_zone)           = "<i class='fa fa-square-o'></i>";
-P(text_i_qlobe)          = "<i class='fa fa-globe'></i>";
-P(text_i_auth)           = "<i class='fa fa-lock'></i>";
-P(text_i_contact)        = "<i class='fa fa-address-card-o'></i>";
-P(text_i_key)            = "<i class='fa fa-key'></i>";
-P(text_i_sens)           = "<i class='fa fa-share-alt'></i>";
-
-P(text_nr)     = "not registered"; 
-P(text_rh)     = "registered (home)";
-P(text_nrs)    = "not registered (searching)"; 
-P(text_rd)     = "registration denied"; 
-P(text_rr)     = "registered (roaming)";
+P(text_denied)    = "denied"; 
+P(text_searching) = "searching"; 
+P(text_roaming)   = "roaming";
 P(text_unk)    = "unknown";
 P(text_Zone)   = "Zone";
 P(text_Type)   = "Type";
@@ -197,6 +186,7 @@ P(text_Pressure)     = "Pressure";
 P(text_Input)        = "Input";
 P(text_Voltage)      = "Voltage";
 P(text_TX_Power)     = "TX Power";
+P(text_Gas)          = "Gas";
 P(text_sensor)       = "sensor";
 P(text_Sensor)       = "Sensor";
 P(text_Value)        = "Value";
@@ -210,6 +200,7 @@ P(text_degC)         = " °C";
 P(text_mBar)         = " mBar";
 P(text_Volt)         = " V";
 P(text_percent)      = " %";
+P(text_ppm)          = " ppm";
 P(text_Open)   = "Open";
 P(text_open)   = "open";
 P(text_OUT1)   = "OUT 1";
@@ -266,7 +257,18 @@ P(text_of) = "of";
 P(text_at) = "at";
 P(text_offset) = "offset";
 
-
+P(text_i_OK)             = "<i class='fa fa-check'></i>";
+P(text_i_ALARM)          = "<i class='fa fa-bell'></i>";
+P(text_i_disabled)       = "<i class='fa fa-ban'></i>";
+P(text_i_starting)       = "<i class='fa fa-spinner fa-pulse'></i>";
+P(text_i_home)           = "<i class='fa fa-home'></i>";
+P(text_i_question)       = "<i class='fa fa-question'></i>";
+P(text_i_zone)           = "<i class='fa fa-square-o'></i>";
+P(text_i_qlobe)          = "<i class='fa fa-globe'></i>";
+P(text_i_auth)           = "<i class='fa fa-lock'></i>";
+P(text_i_contact)        = "<i class='fa fa-address-card-o'></i>";
+P(text_i_key)            = "<i class='fa fa-key'></i>";
+P(text_i_sens)           = "<i class='fa fa-share-alt'></i>";
 
 P(html_F_SA)    = "<input type='submit' name='e' value='Save all'/>";
 P(html_F_RD)    = "<input type='submit' name='r' value='Reset to default'/>";
@@ -329,7 +331,7 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 "* {margin:0;padding:0}\n"
 "*, *:before, *:after {box-sizing:border-box}\n"
 "html, body {height:100%}\n"
-"body {font: 12px/1 Georgia, sans-serif;color: #333;background: #333;overflow-x: hidden}\n"
+"body {font: 12px/1 Georgia, sans-serif;color: #333;background: #333}\n"
 ".wrp {display:flex;min-height:100%}\n"
 ".sb {position:absolute;width:160px}\n"
 ".mb {flex:1;padding:10px 10px 1px 20px;;background:#eee;box-shadow:0 0 5px black;transform: translate3d(160px,0,0)}\n"
@@ -369,7 +371,7 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 ".rc label:hover {background:#eee}\n"
 ".rc input:checked ~ label {color:#fff;background:#5b5}\n"
 "</style></head>\n<body>"
-"<div class='wrp'><div class='sb'><div class='tt'>OHS v.1.7.5</div><ul class='nav'>";
+"<div class='wrp'><div class='sb'><div class='tt'>OHS 1.7.6.0</div><ul class='nav'>";
 
 P(htmlHead_e) = "</ul></div><div class='mb'>";
 P(htmlFoot)   = "</div></div></body></html>";
