@@ -107,11 +107,11 @@ void setDefault(){
       //                 ||- Present - connected
       //                 |||- TWI zone
       //                 ||||- Remote zone
-      //                 |||||- Battery node, they will not send OK only PIR and Tamper
+      //                 |||||- Battery node, they dont send OK, only PIR or Tamper.
       //                 ||||||- Free
       //                 |||||||- PIR as Tamper
       //                 ||||||||- Still open alarm         
-      //                 ||||||||         |- Free
+      //                 ||||||||         |- Arm Home zone
       //                 ||||||||         |||- Auth time
       //                 ||||||||         |||- 0-3x the default time
       //                 ||||||||         |||||||- Group number
@@ -138,14 +138,14 @@ void setDefault(){
   }
   for(uint8_t i = 0; i < ALR_GROUPS; i++) {
     conf.group_name[i][0] = '-';conf.group_name[i][1] = 0;
-  //                  |- Free
-  //                  ||- Free
-  //                  |||- Free
-  //                  ||||- Free
-  //                  |||||- Free
-  //                  ||||||- Free
-  //                  |||||||- Free
-  //                  ||||||||- Free
+  //                  ||||- disarm chain
+  //                  ||||
+  //                  ||||
+  //                  ||||
+  //                  ||||||||- arm chain
+  //                  ||||||||
+  //                  ||||||||
+  //                  ||||||||
   //                  ||||||||         |- MQTT publish
   //                  ||||||||         ||- Free
   //                  ||||||||         |||- Auto arm
@@ -156,7 +156,6 @@ void setDefault(){
   //                  ||||||||         ||||||||-  Enabled 
   //                  54321098         76543210
    conf.group[i] = i << 12 | i << 8 | B00000000; 
-  //  conf.group[ i] = B00000000 << 8 | B00000000; 
   }
 
   conf.ee_pos = 0;
@@ -187,7 +186,7 @@ void setDefault(){
 #define ALERT_BATERY_STATE        11
 #define ALERT_AC_STATE            10    
 #define ALERT_CONF_SAVED          9
-#define ALERT_FIFO                8
+#define ALERT_QUEUE               8
 #define ALERT_MONITORING_STARTED  7
 #define ALERT_ALARM               6    
 #define ALERT_PIR                 5    

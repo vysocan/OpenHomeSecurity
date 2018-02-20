@@ -147,7 +147,7 @@ P(text_percent)  = "%";
 P(text_comma)    = ",";
 */
 P(text_cosp)       = ", ";
-P(text_sesp)       = ": ";
+P(text_sesp)       = ":";
 P(text_spdashsp)   = " - ";
 P(text_Command)    = "Command";
 P(text_PwrSp)      = "Power supply";
@@ -226,7 +226,7 @@ P(text_Fifo)  = "Fifo";
 P(text_full)  = "full";
 P(text_sent)    = "sent";
 P(text_Sent)    = "Sent";
-P(text_connected) = "connected";
+P(text_Connected) = "Connected";
 //P(text_hash)   = "#";
 P(text_User)   = "User";
 P(text_Password)   = "Password";
@@ -257,6 +257,30 @@ P(text_of) = "of";
 P(text_at) = "at";
 P(text_offset) = "offset";
 
+// JavaScript related
+P(JSonLoad)         = "<script onload=\"";
+P(JSonLoadEnd)      = "\">(0);</script>";
+P(JSen)             = "en()";
+P(JSdis)            = "dis()";
+P(JScl)             = "cl()";
+P(JSTrigger)        = "<script>"
+		              "var x=document.querySelectorAll(\"#F0,#F1\");"
+				      "var y=document.querySelectorAll(\"#H0,#H1\");";
+P(JSTimer)          = "<script>"
+		              "var x=document.querySelectorAll(\"#p,#l0,#l1,#l2,#l3\");"
+				      "var y=document.querySelectorAll(\"#D0,#D1,#E0,#E1,#F0,#F1,#G0,#G1,#H0,#H1,#I0,#I1,#J0,#J1\");";				      
+P(JSEnDis)          = "function en(){"
+				      "for(var i=0;i<x.length;i++){x[i].disabled=true;}"
+				      "for(var i=0;i<y.length;i++){y[i].disabled=false;}"
+                      "}function dis(){"
+       			      "for(var i=0;i<x.length;i++){x[i].disabled=false;}"
+				      "for(var i=0;i<y.length;i++){y[i].disabled=true;}"
+                      "}</script>\n";                      
+P(JSLogClear)       = "<script>"
+					  "function cl(){alert('Erasing entire log, it takes few seconds.');}"
+					  "</script>";  
+
+// Icons
 P(text_i_OK)             = "<i class='fa fa-check'></i>";
 P(text_i_ALARM)          = "<i class='fa fa-bell'></i>";
 P(text_i_disabled)       = "<i class='fa fa-ban'></i>";
@@ -270,19 +294,19 @@ P(text_i_contact)        = "<i class='fa fa-address-card-o'></i>";
 P(text_i_key)            = "<i class='fa fa-key'></i>";
 P(text_i_sens)           = "<i class='fa fa-share-alt'></i>";
 
-P(html_F_SA)    = "<input type='submit' name='e' value='Save all'/>";
-P(html_F_RD)    = "<input type='submit' name='r' value='Reset to default'/>";
-P(html_F_LA)    = "<input type='submit' name='l' value='Load last'/>";
-P(html_F_A)     = "<input type='submit' name='A' value='Apply'/>";
-P(html_F_S)     = "<input type='submit' name='S' value='Select'/>";
-P(html_F_LOG)   = "<input type='submit' name='p' value='<<'/><input type='submit' name='n' value='now'/><input type='submit' name='f' value='>>'/>";
-//P(html_F_Clear) = "<input type='submit' name='C' value='Clear log' onsubmit='return cL()'/>";
-P(html_F_Clear) = "<input type='submit' name='C' value='Clear log'/>";
-//P(html_F_CL)    = "<script>function cL() {alert('Erasing entire log, it takes few seconds.');return true;}</script>";  
-P(html_F_GetNTP)= "<input type='submit' name='T' value='Get NTP time'/>";
-P(html_F_RR)    = "<input type='submit' name='R' value='Reregister'/>";
+P(html_F_SA)     = "<input type='submit' name='e' value='Save all'/>";
+P(html_F_RD)     = "<input type='submit' name='r' value='Reset to default'/>";
+P(html_F_LA)     = "<input type='submit' name='l' value='Load last'/>";
+P(html_F_A)      = "<input type='submit' name='A' value='Apply'/>";
+P(html_F_Disarm) = "<input type='submit' name='D' value='Disarm'/>";
+P(html_F_S)      = "<input type='submit' name='S' value='Select'/>";
+P(html_F_LOG)    = "<input type='submit' name='p' value='<<'/><input type='submit' name='n' value='now'/><input type='submit' name='f' value='>>'/>";
+P(html_F_Clear)  = "<input type='submit' name='C' value='Clear log'/>";
+P(html_F_GetNTP) = "<input type='submit' name='T' value='Get NTP time'/>";
+P(html_F_RR)     = "<input type='submit' name='R' value='Reregister'/>";
+
 P(html_e_table) = "</table>";
-P(html_table)   = "<table>";
+//P(html_table)   = "<table>";
 P(html_table_tr_td)   = "<table><tr><td>";
 P(html_table_tr_th)   = "<table><tr><th>";
 P(html_table_tr_th_hash)   = "<table><tr><th>#</th><th>";
@@ -312,6 +336,7 @@ P(html_e_select)  = "</select>";
 P(html_s_tag)     = "<input type='text' name='";
 P(html_s_tag_s  ) = "<input type='text' maxlength='3' size='3' name='";
 P(html_m_tag)     = "' value='";
+P(html_id_tag)    = "' id='";
 P(html_e_tag)     = "'>";
 P(html_option)    = "<option value='";
 P(html_e_option)  = "</option>";
@@ -323,55 +348,59 @@ P(html_radio_sb)  = "<div class='rmb'>";
 P(html_div_e)     = "</div>";
 
 // "@import url(\"http://fonts.googleapis.com/css?family=Montserrat:400,700\");\n"
-// "body {font: 14px/1 'Montserrat', sans-serif;color: #333;background: #333;overflow-x: hidden}\n"
+// "body{font:14px/1 'Montserrat', sans-serif;color:#333;background:#333;overflow-x:hidden}\n"
 
 P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open home security</title>"
 "<style type=\"text/css\">\n"
 "@import url(\"http://netdna.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.css\");\n"
-"* {margin:0;padding:0}\n"
-"*, *:before, *:after {box-sizing:border-box}\n"
-"html, body {height:100%}\n"
-"body {font: 12px/1 Georgia, sans-serif;color: #333;background: #333}\n"
-".wrp {display:flex;min-height:100%}\n"
-".sb {position:absolute;width:160px}\n"
-".mb {flex:1;padding:10px 10px 1px 20px;;background:#eee;box-shadow:0 0 5px black;transform: translate3d(160px,0,0)}\n"
-".tt {font-size:22px;line-height:50px;text-align:center;color:#eee;border-bottom:1px solid #222;background:#2a2a2a}\n"
-".nav li a {position:relative;display:block;padding:15px 15px 15px 50px;color:#eee;border-bottom:1px solid #222}\n"
-".nav li a:before {font:14px fontawesome;position:absolute;top:14px;left:20px}\n"
-".nav li:nth-child(1) a:before {content:'\\f015'}"
-".nav li:nth-child(2) a:before {content:'\\f085'}"
-".nav li:nth-child(3) a:before {content:'\\f096'}"
-".nav li:nth-child(4) a:before {content:'\\f24d'}"
-".nav li:nth-child(5) a:before {content:'\\f084'}"
-".nav li:nth-child(6) a:before {content:'\\f2bc'}"
-".nav li:nth-child(7) a:before {content:'\\f1e0'}"
-".nav li:nth-child(8) a:before {content:'\\f064'}"
-".nav li:nth-child(9) a:before {content:'\\f017'}"
-".nav li:nth-child(10) a:before {content:'\\f0e8'}"
-".nav li:nth-child(11) a:before {content:'\\f15c'}"
-".nav li:nth-child(12) a:before {content:'\\f188'}"
-".nav li a:hover {background:#444}\n"
-".nav li a.active {box-shadow:inset 5px 0 0 #5b5,inset 6px 0 0 #222;background:#444}\n"
-"input, select {cursor:pointer;height: 25px;border: 0px none;outline: 0px none;box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.2);padding: 0px 5px;background:#fff}\n"
-"input[type='submit'] {margin: 0px 10px 10px 0px}\n"
-"h1 {margin: 0px 0 5px;font-size: 28px;padding: 10px}\n"
-"h2 {font-size: 18px;font-weight: 400;color: #999}\n"
+"*{margin:0;padding:0}\n"
+"*, *:before, *:after{box-sizing:border-box}\n"
+"html, body{height:100%}\n"
+"body{font:12px/1 Georgia, sans-serif;color:#333;background:#333}\n"
+".wrp{display:flex;min-height:100%}\n"
+".sb{position:absolute;width:160px}\n"
+".mb{flex:1;padding:10px 10px 1px 20px;;background:#eee;box-shadow:0 0 5px black;transform:translate3d(160px,0,0)}\n"
+//".tt{font-size:22px;line-height:50px;text-align:center;color:#eee;border-bottom:1px solid #222;background:#2a2a2a}\n"
+".tt{font-size:22px;line-height:50px;text-align:center;color:#eee;background:#222}\n"
+".nav li a{position:relative;display:block;padding:15px 15px 15px 50px;color:#eee;border-bottom:1px solid #222}\n"
+".nav li a:before{font:14px fontawesome;position:absolute;top:14px;left:20px}\n"
+".nav li:nth-child(1) a:before{content:'\\f015'}"
+".nav li:nth-child(2) a:before{content:'\\f085'}"
+".nav li:nth-child(3) a:before{content:'\\f096'}"
+".nav li:nth-child(4) a:before{content:'\\f24d'}"
+".nav li:nth-child(5) a:before{content:'\\f084'}"
+".nav li:nth-child(6) a:before{content:'\\f2bc'}"
+".nav li:nth-child(7) a:before{content:'\\f1e0'}"
+".nav li:nth-child(8) a:before{content:'\\f064'}"
+".nav li:nth-child(9) a:before{content:'\\f017'}"
+".nav li:nth-child(10) a:before{content:'\\f0e8'}"
+".nav li:nth-child(11) a:before{content:'\\f15c'}"
+".nav li:nth-child(12) a:before{content:'\\f188'}"
+".nav li a:hover{background:#444}\n"
+".nav li a.active{box-shadow:inset 5px 0 0 #5b5,inset 6px 0 0 #222;background:#444}\n"
+"input, select{cursor:pointer;height:25px;border:0px none;outline:0px none;box-shadow:0px 1px 2px rgba(0,0,0,.2);padding:0px 5px;background:#fff}\n"
+"input[type='submit']{margin:0px 10px 10px 0px}\n"
+"h1{margin:0px 0 5px;font-size:28px;padding:10px}\n"
+"h2{font-size:18px;font-weight:400;color:#999}\n"
 "table{margin:0 0 10px;border-collapse:collapse;border:1px solid #bbb;background-color:#fff}"
-"th, td {padding:8px;border-right:1px solid #bbb}"
-"th {font-weight:600;background:#ddd}"
-"tr:nth-child(even) {background: #eee}"
-"a:link {text-decoration:none}\n"
-".rm, .rml, .rmb {display:flex;height:25px;margin:0;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);overflow:hidden}\n"
-".rm {width:80px;}\n"
-".rml {width:160px;}\n"
-".rmb {width:320px;}\n"
-".rc {flex:1}\n"
-".rc input {position:absolute;opacity:0}\n"
-".rc label {display:block;height:25px;line-height:25px;text-align:center;cursor:pointer}\n"
-".rc label:hover {background:#eee}\n"
-".rc input:checked ~ label {color:#fff;background:#5b5}\n"
-"</style></head>\n<body>"
-"<div class='wrp'><div class='sb'><div class='tt'>OHS 1.7.6.0</div><ul class='nav'>";
+"th,td{padding:8px;border-right:1px solid #bbb}"
+"th{font-weight:600;background:#ddd}"
+"tr:nth-child(even){background:#eee}"
+"a:link{text-decoration:none}\n"
+"input:disabled{background:#eee;}\n"
+".rm,.rml,.rmb{display:flex;height:25px;margin:0;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);overflow:hidden}\n"
+".rm{width:80px;}\n"
+".rml{width:160px;}\n"
+".rmb{width:320px;}\n"
+".rc{flex:1}\n"
+".rc input{position:absolute;opacity:0}\n"
+".rc label{display:block;height:25px;line-height:25px;text-align:center;cursor:pointer}\n"
+".rc label:hover{background:#eee}\n"
+".rc input:checked~label{color:#fff;background:#5b5}\n"
+".rc input:disabled~label{color:#333;background:#eee}\n"
+"</style></head>\n<body onload=\"";
+
+P(htmlHead_m) = "\"><div class='wrp'><div class='sb'><div class='tt'>OHS 1.7.6.1</div><ul class='nav'>";
 
 P(htmlHead_e) = "</ul></div><div class='mb'>";
 P(htmlFoot)   = "</div></div></body></html>";
