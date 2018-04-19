@@ -130,10 +130,8 @@ RS485_msg RX_msg, TX_msg;
 
 // Global configuration for in chip EEPROM
 #include <avr/eeprom.h>
-
+// GSM library on Serial 0
 #include <NilGSM.h>
-//#define Serial GSM  // redefine GSM as standard Serial 0
-
 char sms_text[60];
 char modem_info[16];
 
@@ -152,7 +150,6 @@ struct alert_event_t {
   char    text[EEPROM_MESSAGE];
   //uint8_t type;
 };
-
 NilFIFO<alert_event_t, 5> alert_fifo;
 
 #define WEB_DEBUGGING 1
@@ -163,12 +160,14 @@ NilFIFO<alert_event_t, 5> alert_fifo;
 // Global configuration and default setting
 #include "conf.h"
 
+//Zones alarm events
 struct alarm_event_t {
   uint8_t zone;
   char    type;
 };
 NilFIFO<alarm_event_t, 3> alarm_fifo;  // Queue must be equal to # of AET 
 
+// Zone variables
 struct zone_t {
   uint32_t last_PIR = 0;
   uint32_t last_OK  = 0;
@@ -186,6 +185,7 @@ struct zone_t {
 };
 volatile zone_t zone[ALR_ZONES];
 
+// Group variables
 struct group_t {  
   //                   |- Disabled group log once flag
   //                   ||- Free
@@ -239,7 +239,7 @@ struct node_queue_t {
   char     msg[REG_LEN] = "";  
   uint8_t  length       = 0;
 };
-#define NODE_QUEUE 16
+#define NODE_QUEUE 10
 node_queue_t node_queue[NODE_QUEUE];
 
 // Sensor fifo
@@ -358,7 +358,7 @@ volatile uint32_t idleCount[idleSlots];
 volatile uint8_t  idlePointer    = 0;
 // Global variables
 volatile uint8_t  ACState        = 0;
-volatile uint8_t  OUTs           = 0;         // Output pins
+volatile uint8_t  OUTs           = 0;         // Relay output pins
 volatile uint8_t  MQTTState      = 0;
 volatile uint32_t radio_no_ack   = 0;
 volatile uint32_t radio_received = 0;
@@ -1782,10 +1782,13 @@ NIL_THREAD(LoggerThread, arg) {
           break;
         }
       break;
-      case 'F': // Fifo      
-        if ((conf.alerts[alert_SMS] >> ALERT_QUEUE) & B1) alert_type |= (1 << alert_SMS); // Set On
-        if ((conf.alerts[alert_email] >> ALERT_QUEUE) & B1) alert_type |= (1 << alert_email); // Set On
-        if ((conf.alerts[alert_page] >> ALERT_QUEUE) & B1) alert_type |= (1 << alert_page); // Set On  
+      case 'F': // Fifo 
+        // Do not send alerts about alert FIFO full, it will create another alert!
+        if (log->text[6] != 'L') {
+          if ((conf.alerts[alert_SMS] >> ALERT_QUEUE) & B1) alert_type |= (1 << alert_SMS); // Set On
+          if ((conf.alerts[alert_email] >> ALERT_QUEUE) & B1) alert_type |= (1 << alert_email); // Set On
+          if ((conf.alerts[alert_page] >> ALERT_QUEUE) & B1) alert_type |= (1 << alert_page); // Set On  
+        }
       break;
       case 'R': // Trigger
         if ((conf.alerts[alert_SMS] >> ALERT_TRIGGER) & B1) alert_type |= (1 << alert_SMS); // Set On
@@ -1814,6 +1817,7 @@ NIL_THREAD(LoggerThread, arg) {
       alert_event_t* q = alert_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
       if (q == 0) {
         pushToLog("FL"); // Alert queue is full
+        log_fifo.signalFree(); // Signal FIFO slot is free before continue;
         continue; // Continue if no free space.
       }  
       //strncpy(q->text, log->text, EEPROM_MESSAGE-1); q->text[EEPROM_MESSAGE-1] = 0;
@@ -1833,7 +1837,7 @@ uint8_t readLine(char *line, uint8_t maxLen) {
   int16_t  c     = -1;
 
   nilSemSignal(&ETHSem);  // Exit region.
-  WS.print("RL");
+  //WS.print("RL");
   while (c == -1) {
     _time_now = nilTimeNow();
     if (_time_now - _time_start > 2000) { 
@@ -1847,7 +1851,7 @@ uint8_t readLine(char *line, uint8_t maxLen) {
   }
   nilSemWait(&ETHSem);        // wait for slot
   while (true) {
-    WS.print((char)c);
+    //WS.print((char)c);
     if (count < maxLen)  { line[count++] = c; }
     if (cr && c == '\n') { break; }
     if (c == '\r') { cr = 1; }
@@ -2892,7 +2896,7 @@ NIL_THREAD(DebugThread, arg) {
     idlePointer++;
     if (idlePointer==idleSlots) {
       idlePointer=0;
-      nilPrintUnusedStack(&WS);
+      //nilPrintUnusedStack(&WS);
       //nilPrintStackSizes(&WS);
     }
     idleCount[idlePointer] = 0; // reset idle

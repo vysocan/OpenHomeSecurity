@@ -556,7 +556,7 @@ uint16_t ses_eeprom_add = 0;
 void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tail, bool tail_complete) {
   if (server.checkCredentials(conf.user_pass)) {
     bool repeat;
-    char name[2], value[17];
+    char name[2], value[16];
     if (type == WebServer::POST) {
       do {
         repeat = server.readPOSTparam(name, 2, value, 16);
@@ -583,16 +583,7 @@ void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tai
         nilSemWait(&TWISem);     // wait for slot
         eeprom.readBytes((uint16_t)(ses_eeprom_add + (i*EEPROM_MESSAGE)), EEPROM_MESSAGE, value);
         nilSemSignal(&TWISem);   // Exit region.
-        value[EEPROM_MESSAGE-1] = 0; // Terminate array
-
-        /*
-        l.b[0] = value[0]; l.b[1] = value[1]; l.b[2] = value[2]; l.b[3] = value[3];
-        if (l.lval >= NTP_SECS_YR_1900_2000) time_temp.set(0); // Needed for fresh EEPROM, will show nonsense in all log entries.
-        else time_temp.set(l.lval);
-        GSM.print((char*)time_temp.formatedDateTime()); GSM.print(':');
-        for (uint8_t i = 5; i < EEPROM_MESSAGE; ++i) {GSM.print(value[i]);}          
-        GSM.println();
-        */
+        //value[EEPROM_MESSAGE-1] = 0; // Terminate array
 
         if ((uint16_t)(ses_eeprom_add/EEPROM_MESSAGE + i) > (EEPROM_SIZE/EEPROM_MESSAGE) - 1) 
              server << (uint16_t)(ses_eeprom_add/EEPROM_MESSAGE + i - (EEPROM_SIZE/EEPROM_MESSAGE) + 1); 
@@ -603,6 +594,11 @@ void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tai
         l.b[0] = value[0]; l.b[1] = value[1]; l.b[2] = value[2]; l.b[3] = value[3];
         if (l.lval >= NTP_SECS_YR_1900_2000) time_temp.set(0); // Needed for fresh EEPROM, will show nonsense in all log entries.
         else time_temp.set(l.lval);
+        /*
+        GSM.print((char*)time_temp.formatedDateTime()); GSM.print(':');
+        for (uint8_t i = 5; i < EEPROM_MESSAGE; ++i) {GSM.print(value[i]);}          
+        GSM.println();
+        */
         server.print((char*)time_temp.formatedDateTime()); server.printP(html_e_td_td);
         //char _alert = value[4]; // Store alert state in case value[] is used as temp array, like key
 
@@ -676,7 +672,6 @@ void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tai
               case 'U': server.printP(text_unk); 
                 server.printP(text_cosp); server.printP(text_value); server.print(' ');
                 char _key[KEY_LEN]; for (uint8_t ii = 0; ii < KEY_LEN; ++ii) {_key[ii] = value[7+ii];}
-                //printKey(_key, value); server << value;
                 printKey(server, _key);
                 break;
               case 'F': server.printP(text_is); server.print(' '); server.printP(text_disabled); break;              
