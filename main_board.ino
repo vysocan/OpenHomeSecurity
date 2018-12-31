@@ -26,16 +26,18 @@
 //     OUT1 (D 14) PD6 20|        |21  PD7 (D 15) OUT2
 //                       +--------+
 //
+#define OHS
+
 #include <stdlib.h>
 #include <NilRTOS.h>
 #include <NilTimer1.h>
 #include <DigitalIO.h>
 #include <SPI.h>
 
-//#define TEST 1
+//#define OHS_TEST 1
 
 #include <Ethernet.h>
-#ifdef TEST
+#ifdef OHS_TEST
 static uint8_t mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xAD };  // CHANGE THIS TO YOUR OWN UNIQUE VALUE
 #else
 static uint8_t mac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xFE };  // 0xFE
@@ -73,7 +75,7 @@ WebServer webserver(PREFIX, 80);
 // Callback function header
 void callback(char* topic, byte* payload, unsigned int length);
 
-#ifdef TEST
+#ifdef OHS_TEST
 char str_MQTT_clientID[]  = "OHS2";
 char str_MQTT_Subscribe[] = "OHS2/In/#";
 #else
@@ -366,7 +368,8 @@ volatile uint32_t radio_sent     = 0;
 volatile uint32_t radio_failed   = 0;
 
 #define LOG_MESSAGE_LENGTH 11
-char last_key[KEY_LEN+1] = "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF";
+// to delete - char last_key[KEY_LEN+1] = "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF";
+char last_key[KEY_LEN] = {255,255,255,255,255,255,255,255};
 char _tmp[LOG_MESSAGE_LENGTH];   // for logger 
 char b64_text[EMAIL_LEN]; // encode text
 // GSM modem 
@@ -376,18 +379,18 @@ uint8_t GSMreg = 4, GSMstrength = 0;
 uint8_t n = 0; 
 
 // Pins setting
-DigitalPin<0>  pinBAT_OK(INPUT); // The signal is "Low" when the voltage of battery is under 11V 
-DigitalPin<3>  pinAC_OFF(INPUT); // The signal turns to be "High" when the power supply turns OFF
-DigitalPin<12> pinDE1(OUTPUT);
-DigitalPin<13> pinGSM_PWR(OUTPUT);
-DigitalPin<14> pinOUT1(OUTPUT);
-DigitalPin<15> pinOUT2(OUTPUT);
-DigitalPin<18> pinIN1(INPUT);
-DigitalPin<19> pinIN2(INPUT);
-DigitalPin<20> pinIN3(INPUT);
-DigitalPin<21> pinIN4(INPUT);
-DigitalPin<22> pinIN5(INPUT);
-DigitalPin<23> pinGSM_ON(INPUT);
+DigitalPin<0>  pinBAT_OK; // The signal is "Low" when the voltage of battery is under 11V 
+DigitalPin<3>  pinAC_OFF; // The signal turns to be "High" when the power supply turns OFF
+DigitalPin<12> pinDE1;
+DigitalPin<13> pinGSM_PWR;
+DigitalPin<14> pinOUT1;
+DigitalPin<15> pinOUT2;
+DigitalPin<18> pinIN1;
+DigitalPin<19> pinIN2;
+DigitalPin<20> pinIN3;
+DigitalPin<21> pinIN4;
+DigitalPin<22> pinIN5;
+DigitalPin<23> pinGSM_ON;
 
 // Declare and initialize a semaphore for limiting access to a region.
 SEMAPHORE_DECL(ADCSem, 1);   // one slot only
@@ -461,7 +464,7 @@ uint8_t sendCmd(uint8_t node, uint8_t cmd){
     radio.send(node-RADIO_UNIT_OFFSET, _cmd, 2, true);
     radio_sent++;
     _resp = waitForAck(node-RADIO_UNIT_OFFSET);
-    if (!_resp) ++radio_no_ack;
+    if (!_resp) radio_no_ack++;
     nilSemSignal(&RFMSem);  // Exit region.
     WS.print(F(" R:"));WS.print(node-RADIO_UNIT_OFFSET); WS.print(F(",")); 
     WS.print(F(" RC:")); WS.println(_resp);
@@ -499,10 +502,10 @@ uint8_t sendData(uint8_t node, char *data, uint8_t length){
       radio.send(node-RADIO_UNIT_OFFSET, data, length, true);
       radio_sent++;
       _resp = waitForAck(node-RADIO_UNIT_OFFSET);
-      if (!_resp) ++radio_no_ack;
+      if (!_resp) radio_no_ack++;
       _try++; 
     } while ((_try < RADIO_RETRY) && (!_resp));
-    if (!_resp) ++radio_failed;
+    if (!_resp) radio_failed++;
     nilSemSignal(&RFMSem);  // Exit region.
   }
   WS.print(F(" RC:")); WS.println(_resp);
@@ -532,7 +535,7 @@ uint8_t sendCmdToGrp(uint8_t grp, uint8_t cmd, char type = 'K') {
             _try++;
             //WS.println(); WS.print(F("try:")); WS.print(_try);
           } while ((_try < RADIO_RETRY) && (!_resp));
-          if (!_resp) ++radio_failed;
+          if (!_resp) radio_failed++;
           if (_resp) _cnt++;
           WS.print(node[i].address); WS.print(":"); WS.print(_resp); WS.print(", ");
         } else {
@@ -547,7 +550,7 @@ uint8_t sendCmdToGrp(uint8_t grp, uint8_t cmd, char type = 'K') {
             else       radio_no_ack++;
           } while ((_try < RADIO_RETRY) && (!_resp));
           nilSemSignal(&RFMSem);  // Exit region.
-          if (!_resp) ++radio_failed;
+          if (!_resp) radio_failed++;
           WS.print(node[i].address-RADIO_UNIT_OFFSET); WS.print(":"); WS.print(_resp); WS.print(", ");
         }
       }
@@ -631,7 +634,7 @@ DateTime getNTPTime(UDP &udp){
     return 0;       // no correct packet received
   }
   // Read and discard the first useless bytes
-  for (byte i = 0; i < NTP_USELESS_BYTES; ++i) {
+  for (byte i = 0; i < NTP_USELESS_BYTES; i++) {
     udp.read();
   }
   // Read the integer part of sending time
@@ -779,7 +782,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
       if (_pch != NULL) {
         // Get node name
         _resp = 1;
-        for (_i = 0; _i < nodes; ++_i) {
+        for (_i = 0; _i < nodes; _i++) {
           _resp = strcmp(_pch, node[_i].name); 
           //WS.print(F("_i:")); WS.print(_i); WS.print(F("_resp:")); WS.println(_resp);
           if (_resp == 0) break;
@@ -1111,9 +1114,12 @@ void disarmGroup(uint8_t _group, uint8_t _master = 255, uint8_t _publish = 1, ui
     OUTs = 0; // Reset outs  
     pinOUT1.write(LOW); pinOUT2.write(LOW); // Turn off OUT 1 & 2
   }
-  // set each member zone of this group as alarm off
+  // set each member zone of this group 
   for (uint8_t j=0; j < ALR_ZONES; j++){
-    if (((conf.zone[j] >> 1) & B1111) == _group) zone[j].setting &= ~(1 << 1); 
+    if (((conf.zone[j] >> 1) & B1111) == _group) {
+      zone[j].setting &= ~(1 << 1); // alarm off
+      // Disable autoaarm
+    }
   }
   group[_group].setting &= ~(1 << 0); // disarm group
   group[_group].setting &= ~(1 << 2); // set auth bit off
@@ -1341,7 +1347,7 @@ NIL_THREAD(ZoneThread, arg) {
         processTriggers(0, 'Z', i, (float)val);
       } // zone enabled ?
     } // for (zones)
-    //WS.println();
+    // WS.println();
     //watchdog |= (1 << 0); // Flag watchdog for this thread
   } // while thread TRUE
 }
@@ -1515,11 +1521,13 @@ void checkKey(uint8_t _node, char *_key){
         _tmp[0] = 'A'; _tmp[1] = 'F'; _tmp[2] = i;  pushToLog(_tmp, 3);
       }
     } // key matched
-    else if (i == NUM_OF_KEYS-1) { // maybe we should log unknow keys 
-      _tmp[0] = 'A'; _tmp[1] = 'U'; for (uint8_t ii = 0; ii < KEY_LEN; ++ii) {_tmp[2+ii] = _key[ii];}
+    else if (i == NUM_OF_KEYS-1) { // maybe we should log unknown keys 
+      _tmp[0] = 'A'; _tmp[1] = 'U'; 
+      memcpy(&_tmp[2], _key, KEY_LEN);
+      //for (uint8_t ii = 0; ii < KEY_LEN; ii++) {_tmp[2+ii] = _key[ii];}
       pushToLog(_tmp, 10);
-      memcpy(last_key, _key, KEY_LEN); // store last unknown key
-      last_key[KEY_LEN+1] = 0;
+      memcpy(&last_key[0], _key, KEY_LEN); // store last unknown key
+      // to delete - last_key[KEY_LEN+1] = 0; 
     }
   } // for
 }
@@ -1589,7 +1597,7 @@ NIL_THREAD(RS485RXThread, arg) {
             } // key matched
             if (_resp!=0 && i==NUM_OF_KEYS-1) { // may be we should log unknow keys 
               //pushToLog("AU");
-              _tmp[0] = 'A'; _tmp[1] = 'U'; for (uint8_t ii = 0; ii < KEY_LEN; ++ii) {_tmp[2+ii] = RX_msg.buffer[ii];}
+              _tmp[0] = 'A'; _tmp[1] = 'U'; for (uint8_t ii = 0; ii < KEY_LEN; ii++) {_tmp[2+ii] = RX_msg.buffer[ii];}
               pushToLog(_tmp, 10);
               memcpy(last_key, RX_msg.buffer, KEY_LEN); // store last unknown key
               last_key[KEY_LEN+1] = 0;
@@ -1927,8 +1935,8 @@ NIL_THREAD(AlertThread, arg) {
     sms_text[0] = 0;
 
     WS.print(F("Alert ")); WS.print(alert->text[4], BIN); WS.print(F(": "));
-    //WS.print(F(">>")); for (uint8_t i = 0; i < EEPROM_MESSAGE; ++i) { WS.print(alert->text[i], HEX);WS.print('-'); }
-    //WS.println(); for (uint8_t i = 0; i < EEPROM_MESSAGE; ++i) { WS.print(_test[i], HEX); WS.print('-'); } WS.println();
+    //WS.print(F(">>")); for (uint8_t i = 0; i < EEPROM_MESSAGE; i++) { WS.print(alert->text[i], HEX);WS.print('-'); }
+    //WS.println(); for (uint8_t i = 0; i < EEPROM_MESSAGE; i++) { WS.print(_test[i], HEX); WS.print('-'); } WS.println();
 
     // Compose text
     switch(alert->text[5]){
@@ -2069,7 +2077,7 @@ NIL_THREAD(AlertThread, arg) {
     //WS.print(F("SMS:"));  WS.println((alert->text[4] >> alert_SMS) & B1);
     // Send SMS
     if ((((alert->text[4] >> alert_SMS) & B1) == 1) && (GSMreg == 1)){ 
-      for (uint8_t i = 0; i < NUM_OF_PHONES; ++i) {
+      for (uint8_t i = 0; i < NUM_OF_PHONES; i++) {
         //  phone enabled              specific group                       or global tel.
         if ((conf.tel[i] & B1) && ((((_group == conf.tel[i] >> 1) & B1111)) || (conf.tel[i] >> 5 & B1))) { 
           nilSemWait(&GSMSem);    // wait for slot
@@ -2087,7 +2095,7 @@ NIL_THREAD(AlertThread, arg) {
     //WS.print(F("Page:"));  WS.println((alert->text[4] >> alert_page) & B1);
     // Page number
     if ((((alert->text[4] >> alert_page) & B1) == 1) && (GSMreg == 1)) {
-      for (uint8_t i = 0; i < NUM_OF_PHONES; ++i) {
+      for (uint8_t i = 0; i < NUM_OF_PHONES; i++) {
         //  phone enabled              specific group                       or global tel.
         if ((conf.tel[i] & B1) && ((((_group == conf.tel[i] >> 1) & B1111)) || (conf.tel[i] >> 5 & B1))) { 
           // Prepare ATD+ command
@@ -2122,7 +2130,7 @@ NIL_THREAD(AlertThread, arg) {
       //                    mail.smtp2go.com
       SMTPethClient.connect("176.58.103.10", 2525);
       if (readStatus() != 220 ) { smtpEscape(1); _smtp_go = 0; }
-      //WS.println(); for (uint8_t i = 0; i < EEPROM_MESSAGE; ++i) { WS.print(_test[i], HEX); WS.print('-'); } WS.println();
+      //WS.println(); for (uint8_t i = 0; i < EEPROM_MESSAGE; i++) { WS.print(_test[i], HEX); WS.print('-'); } WS.println();
       if (_smtp_go) { 
         SMTPethClient.println(F("EHLO"));
         if (readStatus() != 250 ) { smtpEscape(2); _smtp_go = 0; }
@@ -2145,7 +2153,7 @@ NIL_THREAD(AlertThread, arg) {
         SMTPethClient.print(F("MAIL FROM:<")); SMTPethClient.print(conf.SMTP_user); SMTPethClient.println(F(">"));
         if (readStatus() != 250 ) { smtpEscape(6); _smtp_go = 0; }
       }
-      for (uint8_t i = 0; i < NUM_OF_PHONES; ++i) {
+      for (uint8_t i = 0; i < NUM_OF_PHONES; i++) {
         //  phone enabled              specific group                       or global tel.
         if ((conf.tel[i] & B1) && ((((_group == conf.tel[i] >> 1) & B1111)) || (conf.tel[i] >> 5 & B1))) {  
           if (_smtp_go) { 
@@ -2162,7 +2170,7 @@ NIL_THREAD(AlertThread, arg) {
       if (_smtp_go) { 
         SMTPethClient.print(F("From: ")); SMTPethClient.println(conf.SMTP_user);
         SMTPethClient.print(F("To: "));
-        for (uint8_t i = 0; i < NUM_OF_PHONES; ++i) {
+        for (uint8_t i = 0; i < NUM_OF_PHONES; i++) {
           //  phone enabled              specific group                       or global tel.
           if ((conf.tel[i] & B1) && ((((_group == conf.tel[i] >> 1) & B1111)) || (conf.tel[i] >> 5 & B1))) { 
             SMTPethClient.print(conf.email[i]); SMTPethClient.print(F(", "));
@@ -2178,8 +2186,8 @@ NIL_THREAD(AlertThread, arg) {
         smtpEscape(0);
       }
     }
-    //WS.print(F(">>")); for (uint8_t i = 0; i < EEPROM_MESSAGE; ++i) { WS.print(alert->text[i], HEX);WS.print('-'); }
-    //WS.println(); for (uint8_t i = 0; i < EEPROM_MESSAGE; ++i) { WS.print(_test[i], HEX); WS.print('-'); } WS.println();
+    //WS.print(F(">>")); for (uint8_t i = 0; i < EEPROM_MESSAGE; i++) { WS.print(alert->text[i], HEX);WS.print('-'); }
+    //WS.println(); for (uint8_t i = 0; i < EEPROM_MESSAGE; i++) { WS.print(_test[i], HEX); WS.print('-'); } WS.println();
     WS.println(F("Alert end"));
     alert_fifo.signalFree(); // Signal FIFO slot is free.
   }
@@ -2295,7 +2303,7 @@ NIL_THREAD(ServiceThread, arg) {
           }
         }
         //   end time has passed
-        if (time_temp.get() >= timer[i].next_off) { // reschedule even if not triggered //&& ((timer[i].setting >> 9) & B1)) {
+        if (time_temp.get() >= timer[i].next_off) { 
           _resp = 0;
           for (_update_node = 0; _update_node < nodes; _update_node++) {
             if (node[_update_node].address  == timer[i].to_address &&
@@ -2319,7 +2327,7 @@ NIL_THREAD(ServiceThread, arg) {
               publishNode(_update_node); // MQTT
             }
           }
-          setTimer(i, 0); // set next start time for this timer
+          setTimer(i, 0); // set next start time for this timer even if not triggered
         }
       }
     }
@@ -2357,7 +2365,7 @@ NIL_THREAD(ServiceThread, arg) {
       }
     }
     // Message queue, delete expired packets
-    for (int8_t i=0; i < NODE_QUEUE ; i++){
+    for (int8_t i=0; i < NODE_QUEUE; i++){
       if ((node_queue[i].address != 0) && (time_temp.get() > node_queue[i].expire)) {
         /*
         WS.print(F("QN ")); WS.print(i);
@@ -2481,7 +2489,7 @@ NIL_THREAD(ServiceThread, arg) {
             if (strcmp(_pch, AT_CMT_reply) == 0) {
               _pch = strtok(NULL, "\""); _pch = strtok(NULL, "\""); // extract tel. number
               WS.print(F("-SMS from: ")); WS.print(_pch); 
-              for (uint8_t i = 0; i < NUM_OF_PHONES; ++i) {
+              for (uint8_t i = 0; i < NUM_OF_PHONES; i++) {
                 //  phone enabled          number does match
                 if ((conf.tel[i] & B1) && (strcmp(_pch, conf.tel_num[i]) == 0)) { 
                   WS.print(F(" OK"));
@@ -2499,7 +2507,7 @@ NIL_THREAD(ServiceThread, arg) {
             if (strcmp_P(_pch, (char*)text_Group) == 0) {
               _pch = strtok(NULL, " ");
               WS.print(':'); WS.print(_pch); 
-              for (uint8_t i = 0; i < ALR_GROUPS; ++i) {
+              for (uint8_t i = 0; i < ALR_GROUPS; i++) {
                 //  name does match
                 if (strcmp(_pch, conf.group_name[i]) == 0) { 
                   _pch = strtok(NULL, " ");
@@ -2535,7 +2543,7 @@ NIL_THREAD(ServiceThread, arg) {
             else if (strcmp_P(_pch, (char*)text_Input) == 0) {
               _pch = strtok(NULL, " ");
               WS.print(F(": ")); WS.print(_pch); 
-              for (uint8_t i = 0; i < ALR_GROUPS; ++i) {
+              for (uint8_t i = 0; i < ALR_GROUPS; i++) {
 
               }
             }
@@ -2553,10 +2561,12 @@ NIL_THREAD(ServiceThread, arg) {
 //------------------------------------------------------------------------------
 // RFM69 thread 
 //
-NIL_WORKING_AREA(waRadioThread, 128);  
+NIL_WORKING_AREA(waRadioThread, 192);  
 NIL_THREAD(RadioThread, arg) {
   uint8_t  _pos, _found, _node;
-
+  uint8_t  _radio_address, _radio_datalen;
+  uint8_t  _radio_data[64];
+  
   #ifdef WEB_DEBUGGING
   WS.println(F("Radio thread started"));    
   #endif
@@ -2566,7 +2576,7 @@ NIL_THREAD(RadioThread, arg) {
     if(nilSemWaitTimeout(&RFMSem, TIME_IMMEDIATE) != NIL_MSG_TMO) {
       //WS.print('@');
       if (radio.receiveDone()) {
-        ++radio_received;
+        radio_received++;
         #ifdef WEB_DEBUGGING
         WS.print(F(">Radio A:")); WS.print(radio.SENDERID);
         WS.print(F(",Data "));WS.print(radio.DATALEN); WS.print(F(","));
@@ -2575,115 +2585,127 @@ NIL_THREAD(RadioThread, arg) {
         }
         WS.print(F("RSSI:")); WS.println(radio.RSSI);
         #endif
+        // Copy msg
+        _radio_address = radio.SENDERID;
+        _radio_datalen = radio.DATALEN;
+        memcpy(&_radio_data[0], &radio.DATA[0], _radio_datalen);
         
-        // iButtons keys
-        if (radio.DATALEN == KEY_LEN) {  // incoming message looks like a key 
-          _found = 0;
-          // search node with given address but only Keys
-          for (_node=0; _node < nodes; _node++) {
-            if ((node[_node].address  == radio.SENDERID+RADIO_UNIT_OFFSET) &&
-                (node[_node].function == 'K')) {
-              _found = 1; break;
-            }
-          }
-          // address found
-          if (_found) {
-            node[_node].last_OK = timestamp.get(); // Update timestamp
-            //  enabled for authorzation       
-            if (node[_node].setting & B1) { 
-              checkKey(_node, (char*)radio.DATA);
-            } // node is enabled for authorization
-            else { // log disabled remote nodes
-              _tmp[0] = 'N'; _tmp[1] = 'F'; _tmp[2] = RX_msg.address; _tmp[3] = 'i';  pushToLog(_tmp, 4);
-            } 
-          } else { // node not found
-            nilThdSleepMilliseconds(10);  
-            _found = sendCmd(radio.SENDERID+RADIO_UNIT_OFFSET, 1); // Call this node to register
-          }
-        } 
-        // Registration
-        if ((char)radio.DATA[0] == 'R') {
-          _pos = 0;
-          do {
-            _pos++; // Skip 'R'
-            register_t *p = reg_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
-            if (p == 0) {
-              pushToLog("FR"); // Registration queue is full
-              continue; // Continue if no free space.
-            }
-            // node setting
-            p->node    = (char)radio.DATA[_pos];    
-            p->address = radio.SENDERID+RADIO_UNIT_OFFSET;
-            p->type    = radio.DATA[_pos+1];
-            p->number  = (uint8_t)radio.DATA[_pos+2];
-            p->setting = ((uint8_t)radio.DATA[_pos+3] << 8) | (uint8_t)radio.DATA[_pos+4];
-            for (uint8_t _t=0; _t < NAME_LEN; _t++) {p->name[_t] = (char)radio.DATA[_pos+5+_t];}
-            reg_fifo.signalData();   // Signal idle thread data is available.
-            _pos+=REG_LEN;
-          } while (_pos < radio.DATALEN);
-        }
-        // Sensors & Inputs feedback
-        if (((char)radio.DATA[0] == 'S') || ((char)radio.DATA[0] == 'I')) {
-          _pos = 1;
-          do {
-            node_t *p = sensor_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
-            if (p == 0) {
-              pushToLog("FS"); // Sensor queue is full
-              continue; // Continue if no free space.
-            }    
-            p->function = (char)radio.DATA[0];
-            p->address  = radio.SENDERID+RADIO_UNIT_OFFSET;
-            p->type     = radio.DATA[_pos];
-            p->number   = (uint8_t)radio.DATA[_pos+1];
-            u.b[0] = radio.DATA[_pos+2]; u.b[1] = radio.DATA[_pos+3]; u.b[2] = radio.DATA[_pos+4]; u.b[3] = radio.DATA[_pos+5];
-            p->value    = u.fval;
-            sensor_fifo.signalData();   // Signal idle thread data is available.
-            _pos+=6;
-          } while (_pos < radio.DATALEN);
-        } // if 'S'
-        // Zone data
-        if ((char)radio.DATA[0] == 'Z') {
-          _pos = 1;
-          do {
-            // Zone allowed
-            if ((radio.DATA[_pos] <= ALR_ZONES) && (radio.DATA[_pos] > HW_ZONES)) {
-              // Zone enabled  
-              if ((conf.zone[radio.DATA[_pos]] & B1) == 1) {
-                // Zone address and sender address match & zone is remote zone 
-                if ((conf.zone_address[radio.DATA[_pos]-HW_ZONES] == radio.SENDERID+RADIO_UNIT_OFFSET) && 
-                   (((conf.zone[radio.DATA[_pos]] >> 12) & B1) == 1)){
-                  zone[radio.DATA[_pos]].last_event = radio.DATA[_pos+1];
-                  if (radio.DATA[_pos+1] == 'O') {
-                    zone[radio.DATA[_pos]].last_OK  = timestamp.get();    // update current timestamp
-                  } else {
-                    zone[radio.DATA[_pos]].last_PIR = timestamp.get();    // update current timestamp
-                  }
-                } else {
-                  // Log error just once
-                  if (((zone[radio.DATA[_pos]].setting >> 5) & B1) == 0) {
-                    _tmp[0] = 'Z'; _tmp[1] = 'e'; _tmp[2] = radio.DATA[_pos]; _tmp[3] = 'M'; pushToLog(_tmp, 4); 
-                    zone[radio.DATA[_pos]].setting |= (1 << 5); // Set error flag
-                    //WS.println(F("Z-NM"));
-                  }
-                }
-              } // zone enabled
-            } else {
-              // Log error just once
-              if (((zone[radio.DATA[_pos]].setting >> 5) & B1) == 0) {
-                _tmp[0] = 'Z'; _tmp[1] = 'e'; _tmp[2] = radio.DATA[_pos]; _tmp[3] = 'N'; pushToLog(_tmp, 4); 
-                zone[radio.DATA[_pos]].setting |= (1 << 5); // Set error flag
-                //WS.println(F("Z-NA"));
-              }              
-            }
-            _pos+=2;
-          } while (_pos < radio.DATALEN);
-        } // if 'Z'
         if (radio.ACKRequested()) radio.sendACK();
+      } else {
+        _radio_address = 0;
       }
-      nilSemSignal(&RFMSem);  // Exit region.
+    }
+    nilSemSignal(&RFMSem);  // Exit region.
+    
+    if (_radio_address != 0) {  
+      // iButtons keys
+      if (_radio_datalen == KEY_LEN) {  // incoming message looks like a key 
+        _found = 0;
+        // search node with given address but only Keys
+        for (_node=0; _node < nodes; _node++) {
+          if ((node[_node].address  == _radio_address+RADIO_UNIT_OFFSET) &&
+              (node[_node].function == 'K')) {
+            _found = 1; break;
+          }
+        }
+        // address found
+        if (_found) {
+          node[_node].last_OK = timestamp.get(); // Update timestamp
+          //  enabled for authorzation       
+          if (node[_node].setting & B1) { 
+            checkKey(_node, _radio_data);
+          } // node is enabled for authorization
+          else { // log disabled remote nodes
+            _tmp[0] = 'N'; _tmp[1] = 'F'; _tmp[2] = RX_msg.address; _tmp[3] = 'i';  pushToLog(_tmp, 4);
+          } 
+        } else { // node not found
+          nilThdSleepMilliseconds(10);  
+          _found = sendCmd(_radio_address+RADIO_UNIT_OFFSET, 1); // Call this node to register
+        }
+      } 
+      // Registration
+      if ((char)_radio_data[0] == 'R') {
+        _pos = 0;
+        do {
+          _pos++; // Skip 'R'
+          register_t *p = reg_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
+          if (p == 0) {
+            pushToLog("FR"); // Registration queue is full
+            continue; // Continue if no free space.
+          }
+          // node setting
+          p->node    = (char)_radio_data[_pos];    
+          p->address = _radio_address+RADIO_UNIT_OFFSET;
+          p->type    = _radio_data[_pos+1];
+          p->number  = (uint8_t)_radio_data[_pos+2];
+          p->setting = ((uint8_t)_radio_data[_pos+3] << 8) | (uint8_t)_radio_data[_pos+4];
+          for (uint8_t _t=0; _t < NAME_LEN; _t++) {p->name[_t] = (char)_radio_data[_pos+5+_t];}
+          reg_fifo.signalData();   // Signal idle thread data is available.
+          _pos+=REG_LEN;
+        } while (_pos < _radio_datalen);
+      }
+      // Sensors & Inputs feedback
+      if (((char)_radio_data[0] == 'S') || ((char)_radio_data[0] == 'I')) {
+        _pos = 1;
+        do {
+          node_t *p = sensor_fifo.waitFree(TIME_IMMEDIATE); // Get a free FIFO slot.
+          if (p == 0) {
+            pushToLog("FS"); // Sensor queue is full
+            continue; // Continue if no free space.
+          }    
+          p->function = (char)_radio_data[0];
+          p->address  = _radio_address+RADIO_UNIT_OFFSET;
+          p->type     = _radio_data[_pos];
+          p->number   = (uint8_t)_radio_data[_pos+1];
+          u.b[0] = _radio_data[_pos+2]; u.b[1] = _radio_data[_pos+3]; u.b[2] = _radio_data[_pos+4]; u.b[3] = _radio_data[_pos+5];
+          p->value    = u.fval;
+          sensor_fifo.signalData();   // Signal idle thread data is available.
+          _pos+=6;
+        } while (_pos < _radio_datalen);
+      } // if 'S'
+      // Zone data
+      if ((char)_radio_data[0] == 'Z') {
+        _pos = 1;
+        do {
+          // Zone allowed
+          if ((_radio_data[_pos] <= ALR_ZONES) && (_radio_data[_pos] > HW_ZONES)) {
+            // Zone enabled  
+            if ((conf.zone[_radio_data[_pos]] & B1) == 1) {
+              // Zone address and sender address match & zone is remote zone 
+              if ((conf.zone_address[_radio_data[_pos]-HW_ZONES] == _radio_address+RADIO_UNIT_OFFSET) && 
+                 (((conf.zone[_radio_data[_pos]] >> 12) & B1) == 1)){
+                zone[_radio_data[_pos]].last_event = _radio_data[_pos+1];
+                if (_radio_data[_pos+1] == 'O') {
+                  zone[_radio_data[_pos]].last_OK  = timestamp.get();    // update current timestamp
+                } else {
+                  zone[_radio_data[_pos]].last_PIR = timestamp.get();    // update current timestamp
+                }
+              } else {
+                // Log error just once
+                if (((zone[_radio_data[_pos]].setting >> 5) & B1) == 0) {
+                  _tmp[0] = 'Z'; _tmp[1] = 'e'; _tmp[2] = _radio_data[_pos]; _tmp[3] = 'M'; pushToLog(_tmp, 4); 
+                  zone[_radio_data[_pos]].setting |= (1 << 5); // Set error flag
+                  //WS.println(F("Z-NM"));
+                }
+              }
+            } // zone enabled
+          } else {
+            // Log error just once
+            if (((zone[_radio_data[_pos]].setting >> 5) & B1) == 0) {
+              _tmp[0] = 'Z'; _tmp[1] = 'e'; _tmp[2] = _radio_data[_pos]; _tmp[3] = 'N'; pushToLog(_tmp, 4); 
+              zone[_radio_data[_pos]].setting |= (1 << 5); // Set error flag
+              //WS.println(F("Z-NA"));
+            }              
+          }
+          _pos+=2;
+        } while (_pos < _radio_datalen);
+      } // if 'Z'
+      
+      //if (radio.ACKRequested()) radio.sendACK();
+
       // Message queue
-      for (_pos = 0; _pos < NODE_QUEUE; ++_pos) {
-        if((node_queue[_pos].address == radio.SENDERID+RADIO_UNIT_OFFSET) && (node_queue[_pos].expire != 0)) {
+      for (_pos = 0; _pos < NODE_QUEUE; _pos++) {
+        if((node_queue[_pos].address == _radio_address+RADIO_UNIT_OFFSET) && (node_queue[_pos].expire != 0)) {
           if (sendData(node_queue[_pos].address, node_queue[_pos].msg, node_queue[_pos].length)) {
             node_queue[_pos].expire  = 0; // mark as empty
             node_queue[_pos].address = 0; // mark as empty
@@ -2916,9 +2938,9 @@ NIL_THREAD(DebugThread, arg) {
  NIL_THREADS_TABLE_BEGIN() 
  NIL_THREADS_TABLE_ENTRY(NULL, ZoneThread, NULL, waZoneThread, sizeof(waZoneThread))
  NIL_THREADS_TABLE_ENTRY(NULL, TimeThread, NULL, waTimeThread, sizeof(waTimeThread))
- NIL_THREADS_TABLE_ENTRY(NULL, thdFcn, (void*)"AET 1", waAEThread1, sizeof(waAEThread1))
- NIL_THREADS_TABLE_ENTRY(NULL, thdFcn, (void*)"AET 2", waAEThread2, sizeof(waAEThread2))
- NIL_THREADS_TABLE_ENTRY(NULL, thdFcn, (void*)"AET 3", waAEThread3, sizeof(waAEThread3))
+ NIL_THREADS_TABLE_ENTRY(NULL, thdFcn, (void*)"A1", waAEThread1, sizeof(waAEThread1))
+ NIL_THREADS_TABLE_ENTRY(NULL, thdFcn, (void*)"A2", waAEThread2, sizeof(waAEThread2))
+ NIL_THREADS_TABLE_ENTRY(NULL, thdFcn, (void*)"A3", waAEThread3, sizeof(waAEThread3))
  NIL_THREADS_TABLE_ENTRY(NULL, RS485RXThread, NULL, waRS485RXThread, sizeof(waRS485RXThread))
  NIL_THREADS_TABLE_ENTRY(NULL, LoggerThread, NULL, waLoggerThread, sizeof(waLoggerThread))
  NIL_THREADS_TABLE_ENTRY(NULL, AlertThread, NULL, waAlertThread, sizeof(waAlertThread))
@@ -2931,8 +2953,23 @@ NIL_THREAD(DebugThread, arg) {
  NIL_THREADS_TABLE_END()
 
 //------------------------------------------------------------------------------
- void setup() {
-  timestamp.set(0); time_started.set(0); // Set time stamps to 0 = 1.1.2000
+void setup() {
+  // Pins setting
+  pinBAT_OK.mode(INPUT);
+  pinAC_OFF.mode(INPUT);
+  pinDE1.mode(OUTPUT);
+  pinGSM_PWR.mode(OUTPUT);
+  pinOUT1.mode(OUTPUT);
+  pinOUT2.mode(OUTPUT);
+  pinIN1.mode(INPUT);
+  pinIN2.mode(INPUT);
+  pinIN3.mode(INPUT);
+  pinIN4.mode(INPUT);
+  pinIN5.mode(INPUT);
+  pinGSM_ON.mode(INPUT);
+  
+  // Set time stamps to 0 = 1.1.2000
+  timestamp.set(0); time_started.set(0); 
 
   // Turn GSM modem On, pull GSM_PWR down for 1S and then wait >3S for pin GSM_ON
   delay(200);
@@ -2959,7 +2996,7 @@ NIL_THREAD(DebugThread, arg) {
       trigger[_trigger].setting &= ~(1 << 5); // Is triggered
     }
     // Force disconnect all remote zones
-    for (uint8_t i = HW_ZONES; i < ALR_ZONES; ++i) {
+    for (uint8_t i = HW_ZONES; i < ALR_ZONES; i++) {
       if ((conf.zone[i] >> 12) & B1) {
         conf.zone[i] &= ~(1 << 0);  // disable
         conf.zone[i] &= ~(1 << 14); // disconnect

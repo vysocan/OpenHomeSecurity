@@ -93,7 +93,7 @@ void printNodeFunction(WebServer &server, char _function) {
 
 void selectGroup(WebServer &server, uint8_t _setting, char _name = 'g') {
   server.printP(html_select); server.print(_name); server.printP(html_e_tag);
-  for (uint8_t ii = 0; ii < ALR_GROUPS; ++ii) {
+  for (uint8_t ii = 0; ii < ALR_GROUPS; ii++) {
     server.printP(html_option); server << ii;
     if ((_setting & B1111) == ii) { server.printP(html_selected); }
     else                              { server.printP(html_e_tag); }
@@ -129,16 +129,16 @@ void printNodeAddress(WebServer &server, char function, uint8_t address, uint8_t
   }
 }
 
-void printOnOffButton(WebServer &server, char *name, uint8_t state) {
+void printOnOffButton(WebServer &server, char *name, uint8_t state, bool enableJS = false) {
   server.printP(html_radio_s);
-  server.radioButton2(name, 1, text_On, state);
-  server.radioButton2(name, 0, text_Off, !state);
+  server.radioButton2(name, 1, text_On, state, enableJS);
+  server.radioButton2(name, 0, text_Off, !state, enableJS);
   server.printP(html_div_e);
 }
 
 void printKey(WebServer &server, char* in) { // Format the key value to nice HEX string
   uint8_t _in1, _in2;
-  for (uint8_t ii = 0; ii < KEY_LEN; ++ii) { 
+  for (uint8_t ii = 0; ii < KEY_LEN; ii++) { 
     _in1 = ((in[ii] >> 4) & B1111);
     _in2 =  (in[ii] & B1111);
     if (_in1 > 9) server.print(char(55+_in1));  // A = 65 - 10
@@ -149,7 +149,7 @@ void printKey(WebServer &server, char* in) { // Format the key value to nice HEX
 }
 /*
 void printKey(char* in, char* out) { // Format the key value to nice HEX string
-  for (uint8_t ii = 0; ii < KEY_LEN; ++ii) { 
+  for (uint8_t ii = 0; ii < KEY_LEN; ii++) { 
     out[ii*2]   = in[ii] >> 4 & B1111;
     out[ii*2+1] = in[ii] & B1111;
     if (out[ii*2] > 9) out[ii*2] = out[ii*2] + 'A' - 10; 
@@ -185,11 +185,15 @@ typedef enum {
   menu_Debug    = 12
 } menu_t;
 
-void webMenu(WebServer &server, uint8_t selected, bool enableJS = false) {
+void webMenu(WebServer &server, uint8_t selected, uint8_t enableJS = 0) {
   // Enable JavaScript
   server.printP(htmlHead_s);
   switch(selected){
     case menu_Timers:
+      if (enableJS) server.printP(JSen);
+      else          server.printP(JSdis);
+    break;
+    case menu_Triggers:
       if (enableJS) server.printP(JSen);
       else          server.printP(JSdis);
     break;
@@ -238,7 +242,7 @@ void webDebug(WebServer &server, WebServer::ConnectionType type, char *url_tail,
       
       WS.resetRead(); // show all in buffer
       server.printP(html_h1); server.printP(text_Debug); server.printP(html_e_h1); 
-      for (uint8_t i = 0; i < idleSlots; ++i){
+      for (uint8_t i = 0; i < idleSlots; i++){
         if (i == idlePointer) server << "<B>" << idleCount[i] << "</B>"; 
         else                  server << idleCount[i];
         server.printP(text_spdashsp);
@@ -370,7 +374,7 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       ((conf.setting >> 1) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_e_tr_tr_td);      
       server.printP(text_DS); server.print(' '); server.printP(text_start); server.printP(html_e_td_td);
       server.printP(html_select); server << 'z'; server.printP(html_e_tag);
-      for (int8_t ii = 0; ii < 5; ++ii) {
+      for (int8_t ii = 0; ii < 5; ii++) {
         if ((conf.time_dst_week) == ii)  
           { server.printP(html_option); server << ii; server.printP(html_selected);}
         else 
@@ -380,7 +384,7 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       server.printP(html_e_select);
       server.print(' ');
       server.printP(html_select); server << 'x'; server.printP(html_e_tag);
-      for (int8_t ii = 0; ii < 7; ++ii) {
+      for (int8_t ii = 0; ii < 7; ii++) {
         if ((conf.time_dst_dow) == ii)  
           { server.printP(html_option); server << ii; server.printP(html_selected);}
         else 
@@ -390,7 +394,7 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       server.printP(html_e_select);
       server.print(' '); server.printP(text_of); server.print(' ');
       server.printP(html_select); server << 'c'; server.printP(html_e_tag);
-      for (int8_t ii = 0; ii < 12; ++ii) {
+      for (int8_t ii = 0; ii < 12; ii++) {
         if ((conf.time_dst_month-1) == ii)  
           { server.printP(html_option); server << ii+1; server.printP(html_selected);}
         else 
@@ -400,7 +404,7 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       server.printP(html_e_select);
       server.print(' '); server.printP(text_at); server.print(' ');
       server.printP(html_select); server << 'v'; server.printP(html_e_tag);
-      for (int8_t ii = 0; ii < 24; ++ii) {
+      for (int8_t ii = 0; ii < 24; ii++) {
         if ((conf.time_dst_hour) == ii)  
           { server.printP(html_option); server << ii; server.printP(html_selected);}
         else 
@@ -420,7 +424,7 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       
       server.printP(text_DS); server.print(' '); server.printP(text_end); server.printP(html_e_td_td);
       server.printP(html_select); server << 'a'; server.printP(html_e_tag);
-      for (int8_t ii = 0; ii < 5; ++ii) {
+      for (int8_t ii = 0; ii < 5; ii++) {
         if ((conf.time_std_week) == ii)  
           { server.printP(html_option); server << ii; server.printP(html_selected);}
         else 
@@ -430,7 +434,7 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       server.printP(html_e_select);
       server.print(' ');
       server.printP(html_select); server << 's'; server.printP(html_e_tag);
-      for (int8_t ii = 0; ii < 7; ++ii) {
+      for (int8_t ii = 0; ii < 7; ii++) {
         if ((conf.time_std_dow) == ii)  
           { server.printP(html_option); server << ii; server.printP(html_selected);}
         else 
@@ -440,7 +444,7 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       server.printP(html_e_select);
       server.print(' '); server.printP(text_of); server.print(' ');
       server.printP(html_select); server << 'd'; server.printP(html_e_tag);
-      for (int8_t ii = 0; ii < 12; ++ii) {
+      for (int8_t ii = 0; ii < 12; ii++) {
         if ((conf.time_std_month-1) == ii)  
           { server.printP(html_option); server << ii+1; server.printP(html_selected);}
         else 
@@ -450,7 +454,7 @@ void webHome(WebServer &server, WebServer::ConnectionType type, char *url_tail, 
       server.printP(html_e_select);
       server.print(' '); server.printP(text_at); server.print(' ');
       server.printP(html_select); server << 'f'; server.printP(html_e_tag);
-      for (int8_t ii = 0; ii < 24; ++ii) {
+      for (int8_t ii = 0; ii < 24; ii++) {
         if ((conf.time_std_hour) == ii)  
           { server.printP(html_option); server << ii; server.printP(html_selected);}
         else 
@@ -577,7 +581,7 @@ void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tai
       server.printP(html_e_th_th); server.printP(text_Message);
       server.printP(html_e_th_th); server.printP(text_Alert); server.print(' '); server.printP(text_requested); server.print(' '); server.printP(text_for);
       server.printP(html_e_th_e_tr);
-      for (uint8_t i = 0; i < 21; ++i){
+      for (uint8_t i = 0; i < 21; i++){
         server.printP(html_tr_td);
         // Get data from extrenal EEPROM
         nilSemWait(&TWISem);     // wait for slot
@@ -596,7 +600,7 @@ void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tai
         else time_temp.set(l.lval);
         /*
         GSM.print((char*)time_temp.formatedDateTime()); GSM.print(':');
-        for (uint8_t i = 5; i < EEPROM_MESSAGE; ++i) {GSM.print(value[i]);}          
+        for (uint8_t i = 5; i < EEPROM_MESSAGE; i++) {GSM.print(value[i]);}          
         GSM.println();
         */
         server.print((char*)time_temp.formatedDateTime()); server.printP(html_e_td_td);
@@ -669,9 +673,10 @@ void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tai
             switch(value[6]){
               case 'D': server.printP(text_disarmed); break;
               case 'A': server.printP(text_armed); break;
-              case 'U': server.printP(text_unk); 
-                server.printP(text_cosp); server.printP(text_value); server.print(' ');
-                char _key[KEY_LEN]; for (uint8_t ii = 0; ii < KEY_LEN; ++ii) {_key[ii] = value[7+ii];}
+              case 'U': server.printP(text_unk); server.printP(text_cosp); server.printP(text_value); server.print(' ');
+                char _key[KEY_LEN];
+                memcpy(_key, value[7], KEY_LEN);
+                //for (uint8_t ii = 0; ii < KEY_LEN; ii++) {_key[ii] = value[7+ii];}
                 printKey(server, _key);
                 break;
               case 'F': server.printP(text_is); server.print(' '); server.printP(text_disabled); break;              
@@ -779,7 +784,7 @@ void webListLog(WebServer &server, WebServer::ConnectionType type, char *url_tai
           break;
           default:
             server.printP(text_Undefined); server.printP(text_sesp);
-            for (uint8_t i = 5; i < EEPROM_MESSAGE; ++i) {server.print(value[i]);}
+            for (uint8_t i = 5; i < EEPROM_MESSAGE; i++) {server.print(value[i]);}
           break;
         }
         server.print('.');
@@ -841,7 +846,7 @@ void webSetZone(WebServer &server, WebServer::ConnectionType type, char *url_tai
                 // look queue slot
                 _found = 255;
                 // Look for empty queue slot or last this zone used slot
-                for (uint8_t i = 0; i < NODE_QUEUE; ++i) {
+                for (uint8_t i = 0; i < NODE_QUEUE; i++) {
                   //   queue flag 
                   if ((zone[webZone].setting >> 6) & B1) {
                     if(node_queue[i].index  == NODES+webZone) { _found = i; break; }
@@ -911,7 +916,7 @@ void webSetZone(WebServer &server, WebServer::ConnectionType type, char *url_tai
         server.printP(html_e_th_th); server.printP(text_Last); server.print(' '); server.printP(text_OK);
         server.printP(html_e_th_th); server.printP(text_Status);
         server.printP(html_e_th_e_tr);
-        for (uint8_t i = 0; i < ALR_ZONES; ++i) {
+        for (uint8_t i = 0; i < ALR_ZONES; i++) {
           //   Zone is connected
           if ((conf.zone[i] >> 14) & B1) {
             server.printP(html_tr_td); 
@@ -953,7 +958,7 @@ void webSetZone(WebServer &server, WebServer::ConnectionType type, char *url_tai
         server.printP(html_table_tr_td);
         server.printP(text_Zone);server.printP(html_e_td_td);
         server.printP(html_select_submit); server << 'Z'; server.printP(html_e_tag);
-        for (uint8_t ii = 0; ii < ALR_ZONES; ++ii) {
+        for (uint8_t ii = 0; ii < ALR_ZONES; ii++) {
             if ((conf.zone[ii] >> 14) & B1) {
             server.printP(html_option); server << ii;
             if (webZone == ii) { server.printP(html_selected); }
@@ -1074,7 +1079,7 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
       server.printP(html_e_th_th); server.printP(text_Tamper);
       server.printP(html_e_th_th); server.printP(text_Status);
       server.printP(html_e_th_e_tr);
-      for (uint8_t i = 0; i < ALR_GROUPS; ++i) {
+      for (uint8_t i = 0; i < ALR_GROUPS; i++) {
         server.printP(html_tr_td); 
         server << i+1; server.print('.'); server.printP(html_e_td_td);
         server << conf.group_name[i]; server.printP(html_e_td_td);
@@ -1092,7 +1097,7 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
         } else { server.printP(text_spdashsp); }
         server.printP(html_e_td_td);
         n = 0;
-        for (uint8_t ii = 0; ii < ALR_ZONES; ++ii) {
+        for (uint8_t ii = 0; ii < ALR_ZONES; ii++) {
           if ((((conf.zone[ii] >> 1) & B1111) == i) && (conf.zone[ii] & B1)) {
             if (n) { server.printP(html_br); }
             server << ii+1; server.printP(text_spdashsp); server << conf.zone_name[ii];
@@ -1101,7 +1106,7 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
         }
         server.printP(html_e_td_td);
         n = 0;
-        for (uint8_t ii = 0; ii < nodes; ++ii) {      
+        for (uint8_t ii = 0; ii < nodes; ii++) {      
           //     group number                              Node enabled               Auth. node
           if ((((node[ii].setting >> 1) & B1111) == i) && (node[ii].setting & B1) && (node[ii].function == 'K')) { 
             if (n) { server.printP(html_br); }
@@ -1111,7 +1116,7 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
         }
         server.printP(html_e_td_td);
         n = 0;
-        for (uint8_t ii = 0; ii < nodes; ++ii) {
+        for (uint8_t ii = 0; ii < nodes; ii++) {
           //     group number                              Node enabled               Sensor   
           if ((((node[ii].setting >> 1) & B1111) == i) && (node[ii].setting & B1) && (node[ii].function == 'S')) {
             if (n) { server.printP(html_br); }
@@ -1121,7 +1126,7 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
         }
         server.printP(html_e_td_td);
         n = 0;
-        for (uint8_t ii = 0; ii < NUM_OF_PHONES; ++ii) {
+        for (uint8_t ii = 0; ii < NUM_OF_PHONES; ii++) {
           if (((((conf.tel[ii] >> 1) & B1111) == i) || (conf.tel[ii] >> 5 & B1)) && (conf.tel[ii] & B1)){
             if (n) { server.printP(html_br); }
             server << conf.tel_name[ii];
@@ -1146,7 +1151,7 @@ void webSetGroup(WebServer &server, WebServer::ConnectionType type, char *url_ta
       server.printP(html_table_tr_td);
       server.printP(text_Group); server.printP(html_e_td_td);
       server.printP(html_select_submit); server << 'G'; server.printP(html_e_tag);
-      for (uint8_t ii = 0; ii < ALR_GROUPS; ++ii) {
+      for (uint8_t ii = 0; ii < ALR_GROUPS; ii++) {
         if (webGroup == ii) 
           { server.printP(html_option); server << ii; server.printP(html_selected); server << ii + 1;}
         else 
@@ -1210,7 +1215,7 @@ void webSetKey(WebServer &server, WebServer::ConnectionType type, char *url_tail
             }
           break;
           case 'k': // key
-            for (uint8_t ii = 0; ii < KEY_LEN; ++ii) {
+            for (uint8_t ii = 0; ii < KEY_LEN; ii++) {
               if (value[ii*2] > '9') value[ii*2] = value[ii*2] - 'A' + 10;
               else value[ii*2] = value[ii*2] - '0';
               if (value[ii*2+1] > '9') value[ii*2+1] = value[ii*2+1] - 'A' + 10;
@@ -1254,7 +1259,7 @@ void webSetKey(WebServer &server, WebServer::ConnectionType type, char *url_tail
       server.printP(html_e_th_th); server.printP(text_Global);
       server.printP(html_e_th_th); server.printP(text_Group);
       server.printP(html_e_th_e_tr);
-      for (uint8_t i = 0; i < NUM_OF_KEYS; ++i) {
+      for (uint8_t i = 0; i < NUM_OF_KEYS; i++) {
         server.printP(html_tr_td); 
         server << i+1; server.print('.'); server.printP(html_e_td_td);
         server << conf.key_name[i]; server.printP(html_e_td_td);
@@ -1275,7 +1280,7 @@ void webSetKey(WebServer &server, WebServer::ConnectionType type, char *url_tail
       server.printP(html_table_tr_td);
       server.printP(text_Key); server.printP(html_e_td_td);
       server.printP(html_select_submit); server << 'K'; server.printP(html_e_tag);
-      for (uint8_t ii = 0; ii < NUM_OF_KEYS; ++ii) {
+      for (uint8_t ii = 0; ii < NUM_OF_KEYS; ii++) {
         server.printP(html_option); server << ii;
         if (webKey == ii) { server.printP(html_selected); }
         else              { server.printP(html_e_tag); }
@@ -1372,7 +1377,7 @@ void webSetPhone(WebServer &server, WebServer::ConnectionType type, char *url_ta
         server.printP(html_e_th_th); server.printP(text_Global);
         server.printP(html_e_th_th); server.printP(text_Group);
         server.printP(html_e_th_e_tr);
-        for (uint8_t i = 0; i < NUM_OF_PHONES; ++i) {
+        for (uint8_t i = 0; i < NUM_OF_PHONES; i++) {
           server.printP(html_tr_td); 
           server << i+1; server.print('.'); server.printP(html_e_td_td);
           server << conf.tel_name[i]; server.printP(html_e_td_td);
@@ -1392,7 +1397,7 @@ void webSetPhone(WebServer &server, WebServer::ConnectionType type, char *url_ta
         server.printP(html_table_tr_td);
         server.printP(text_Contact); server.printP(html_e_td_td);  
         server.printP(html_select_submit); server << 'P'; server.printP(html_e_tag);
-        for (uint8_t ii = 0; ii < NUM_OF_PHONES; ++ii) {
+        for (uint8_t ii = 0; ii < NUM_OF_PHONES; ii++) {
           server.printP(html_option); server << ii;
           if (webTel == ii) { server.printP(html_selected); }
           else              { server.printP(html_e_tag); }
@@ -1463,7 +1468,7 @@ void webSetSens(WebServer &server, WebServer::ConnectionType type, char *url_tai
                 _found = node[webSens].queue; // Replace last message in queue
               } else {
                 // Look for empty queue slot
-                for (uint8_t i = 0; i < NODE_QUEUE; ++i) {
+                for (uint8_t i = 0; i < NODE_QUEUE; i++) {
                   if(node_queue[i].expire == 0) { _found = i; break; }
                 }
               }
@@ -1517,7 +1522,7 @@ void webSetSens(WebServer &server, WebServer::ConnectionType type, char *url_tai
       server.printP(html_e_th_th); server.printP(text_Group);
       server.printP(html_e_th_th); server.printP(text_Queue); server.print('d');
       server.printP(html_e_th_e_tr);
-      for (uint8_t i = 0; i < nodes; ++i) {
+      for (uint8_t i = 0; i < nodes; i++) {
         server.printP(html_tr_td); 
         server << i+1; server.print('.'); server.printP(html_e_td_td);        
         printNodeAddress(server, i);
@@ -1555,7 +1560,7 @@ void webSetSens(WebServer &server, WebServer::ConnectionType type, char *url_tai
       server.printP(html_table_tr_td);
       server.printP(text_Node); server.printP(html_e_td_td);
       server.printP(html_select_submit); server << 'P'; server.printP(html_e_tag);
-      for (uint8_t ii = 0; ii < nodes; ++ii) {
+      for (uint8_t ii = 0; ii < nodes; ii++) {
         server.printP(html_option); server << ii;
         if (webSens == ii) { server.printP(html_selected); }
         else               { server.printP(html_e_tag); }
@@ -1813,7 +1818,9 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
       server.httpSuccess();
       //if (trigger[webTrig].type == 'Z') webMenu(server, menu_Triggers, false);
       //else                              webMenu(server, menu_Triggers, true);
-      webMenu(server, menu_Triggers);
+      //                                Pass On/Off 
+      webMenu(server, menu_Triggers, ((trigger[webTrig].setting >> 2) & B1));
+      //webMenu(server, menu_Triggers);
       server.printP(html_h1); server.printP(text_Trigger); server.print(' '); server.printP(text_setup); server.printP(html_e_h1);  
       server.printP(html_form_s); server << PREFIX "/t"; server.printP(html_form_e);    
       server.printP(html_table_tr_th_hash); server.printP(text_Name);
@@ -1833,7 +1840,7 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
       server.printP(html_e_th_th); server.printP(text_Off);
       server.printP(html_e_th_th); server.printP(text_Trigger); server.printP(text_ed);
       server.printP(html_e_th_e_tr);
-      for (uint8_t i = 0; i < TRIGGERS; ++i) {
+      for (uint8_t i = 0; i < TRIGGERS; i++) {
         server.printP(html_tr_td); 
         server << i+1; server.print('.'); server.printP(html_e_td_td);
         server << trigger[i].name; server.printP(html_e_td_td);
@@ -1852,22 +1859,29 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
         ((trigger[i].setting >> 2) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
         ((trigger[i].setting >> 4) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
         ((trigger[i].setting >> 8) & B1) ? server.printP(text_Timer) : ((trigger[i].setting >> 7) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
-        server << trigger[i].off_time ; server.print(' ');
-        printPeriodType(server, trigger[i].setting >> 14 & B11);
-        
+        // For Timer OFF
+        if ((trigger[i].setting >> 8) & B1) {
+          server << trigger[i].off_time ; server.print(' '); printPeriodType(server, trigger[i].setting >> 14 & B11);
+        }        
         server.printP(html_e_td_td);
         ((trigger[i].setting >> 1) & B1) ? server.printP(text_value) : server.printP(text_constant); server.printP(html_e_td_td);
-        printNodeAddress(server, 'I', trigger[i].to_address, trigger[i].to_number, trigger[i].to_type);
-        server.printP(html_e_td_td);      
-        server << trigger[i].constant_on; server.printP(html_e_td_td);
-        server << trigger[i].constant_off; server.printP(html_e_td_td);
+        // If pass enebled show pass address
+        if ((trigger[i].setting >> 2) & B1) {printNodeAddress(server, 'I', trigger[i].to_address, trigger[i].to_number, trigger[i].to_type);}
+        else {server.printP(text_none);}
+        server.printP(html_e_td_td);
+        // Show value for constant
+        if (!((trigger[i].setting >> 1) & B1)) {server << trigger[i].constant_on;}
+        server.printP(html_e_td_td);
+        // Show value for constant
+        if (!((trigger[i].setting >> 1) & B1)) {server << trigger[i].constant_off;}
+        server.printP(html_e_td_td);
         ((trigger[i].setting >> 5) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_e_tr);
       }
       server.printP(html_e_table); 
       server.printP(html_table_tr_td);
       server.printP(text_Trigger); server.printP(html_e_td_td);
       server.printP(html_select_submit); server << 'P'; server.printP(html_e_tag);
-      for (uint8_t ii = 0; ii < TRIGGERS; ++ii) {
+      for (uint8_t ii = 0; ii < TRIGGERS; ii++) {
         server.printP(html_option); server << ii;
         if (webTrig == ii) { server.printP(html_selected); }
         else               { server.printP(html_e_tag); }
@@ -1882,7 +1896,7 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
       server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Address); server.printP(html_e_td_td);
       server.printP(html_select); server << 'a'; server.printP(html_e_tag);
-      for (uint8_t ii = 0; ii < ALR_ZONES; ++ii) {
+      for (uint8_t ii = 0; ii < ALR_ZONES; ii++) {
         // Zone is enabled
         if (conf.zone[ii] & B1) {
           server.printP(html_option); server << ii;
@@ -1895,7 +1909,7 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
           server.printP(html_e_option);
         }
       }
-      for (uint8_t ii = ALR_ZONES; ii < (ALR_ZONES + nodes); ++ii) {
+      for (uint8_t ii = ALR_ZONES; ii < (ALR_ZONES + nodes); ii++) {
         if (node[ii-ALR_ZONES].function == 'S') {
           server.printP(html_option); server << ii;
           if (node[ii-ALR_ZONES].address == trigger[webTrig].address &&
@@ -1910,7 +1924,7 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
       server.printP(html_e_select); server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Symbol); server.printP(html_e_td_td);      
       server.printP(html_select); server << 's'; server.printP(html_e_tag);
-      for (uint8_t ii = 0; ii < TRIGGER_SYMBOLS; ++ii) {
+      for (uint8_t ii = 0; ii < TRIGGER_SYMBOLS; ii++) {
         server.printP(html_option); server << ii;
         if (trigger[webTrig].symbol == ii) { server.printP(html_selected); }
         else                               { server.printP(html_e_tag); }
@@ -1929,7 +1943,7 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
       printOnOffButton(server, "H", (trigger[webTrig].setting >> 6) & B1);
       server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Pass); server.printP(html_e_td_td);
-      printOnOffButton(server, "D", (trigger[webTrig].setting >> 2) & B1);
+      printOnOffButton(server, "D", (trigger[webTrig].setting >> 2) & B1, true);
       server.printP(html_e_td_e_tr_tr_td); 
       server.printP(text_Pass); server.print(' '); server.printP(text_once); server.printP(html_e_td_td);
       printOnOffButton(server, "F", (trigger[webTrig].setting >> 4) & B1);
@@ -1958,7 +1972,7 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
       server.printP(html_div_e); server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_To); server.print(' '); server.printP(text_address); server.printP(html_e_td_td);
       server.printP(html_select); server << 't'; server.printP(html_e_tag);
-      for (uint8_t ii = 0; ii < nodes; ++ii) {
+      for (uint8_t ii = 0; ii < nodes; ii++) {
         if (node[ii].function == 'I') {
           server.printP(html_option); server << ii;
           if (node[ii].address == trigger[webTrig].to_address &&
@@ -1981,8 +1995,8 @@ void webSetTriggers(WebServer &server, WebServer::ConnectionType type, char *url
       //server << trigger[webTrig].constant_off; server.printP(html_e_tag);
       printInput(server, 'f', trigger[webTrig].constant_off); server.printP(html_e_td_e_tr);     
       server.printP(html_e_table);
-      //server.printP(JSTrigger); // JavaScript         
-      //server.printP(JSEnDis); // JavaScript
+      server.printP(JSTrigger); // JavaScript         
+      server.printP(JSEnDis); // JavaScript
       server.printP(html_F_A); // submit Apply
       server.printP(html_F_SA); // submit Save all
       server.printP(html_e_form);
@@ -2076,30 +2090,37 @@ void webSetTimers(WebServer &server, WebServer::ConnectionType type, char *url_t
       server.printP(html_e_th_th); server.printP(text_To); server.print(' '); server.printP(text_address);
       server.printP(html_e_th_th); server.printP(text_On);
       server.printP(html_e_th_th); server.printP(text_Off);
-      server.printP(html_e_th_th); server.printP(text_Trigger); server.printP(text_ed);
+      server.printP(html_e_th_th); server.printP(text_Status);
       server.printP(html_e_th_e_tr);
-      for (uint8_t i = 0; i < TIMERS; ++i) {
+      for (uint8_t i = 0; i < TIMERS; i++) {
         server.printP(html_tr_td); 
         server << i+1; server.print('.'); server.printP(html_e_td_td);
         server << timer[i].name; server.printP(html_e_td_td);
         (timer[i].setting & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
         ((timer[i].setting >> 1) & B1) ? server.printP(text_Calendar) : server.printP(text_Period); server.printP(html_e_td_td);
-        ((timer[i].setting >> 7) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
-        ((timer[i].setting >> 6) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
-        ((timer[i].setting >> 5) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
-        ((timer[i].setting >> 4) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
-        ((timer[i].setting >> 3) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
-        ((timer[i].setting >> 2) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
-        ((timer[i].setting >> 8) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
+        // Calendar
+        if ((timer[i].setting >> 1) & B1) {
+          ((timer[i].setting >> 7) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
+          ((timer[i].setting >> 6) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
+          ((timer[i].setting >> 5) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
+          ((timer[i].setting >> 4) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
+          ((timer[i].setting >> 3) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
+          ((timer[i].setting >> 2) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
+          ((timer[i].setting >> 8) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled); server.printP(html_e_td_td);
+        } else {
+          for (uint8_t ii = 0; ii < 7; ii++) {server.printP(html_e_td_td);}
+        }
         n = (timer[i].start_time / 60); 
         if (n < 10) server << '0'; server << n;
         server.print(':');
         n = (timer[i].start_time % 60);
         if (n < 10) server << '0'; server << n;
         server.printP(html_e_td_td);
-        server << timer[i].period; server.print(' '); 
-        printPeriodType(server, timer[i].setting >> 12 & B11);
-        
+        // not Calendar
+        if (!((timer[i].setting >> 1) & B1)) {
+          server << timer[i].period; server.print(' ');
+          printPeriodType(server, timer[i].setting >> 12 & B11);
+        }
         server.printP(html_e_td_td);
         server << timer[i].run_time ; server.print(' ');
         printPeriodType(server, timer[i].setting >> 14 & B11);
@@ -2108,12 +2129,16 @@ void webSetTimers(WebServer &server, WebServer::ConnectionType type, char *url_t
         if (timer[i].asc_trigger == 0) { server.printP(text_none); }
         else                           { 
           server << timer[i].asc_trigger; server.printP(text_spdashsp);
-          server << trigger[timer[i].asc_trigger-1].name; server.printP(text_spdashsp);
+          server << trigger[timer[i].asc_trigger-1].name; server.print(' ');
           ((trigger[timer[i].asc_trigger-1].setting >> 5) & B1) ? server.printP(text_i_OK) : server.printP(text_i_disabled);
          }
         server.printP(html_e_td_td);
-        time_temp.set(timer[i].next_on); server.print((char*)time_temp.formatedDateTime()); server.printP(html_e_td_td);
-        time_temp.set(timer[i].next_off); server.print((char*)time_temp.formatedDateTime()); server.printP(html_e_td_td);
+        // If enabled
+        if (timer[i].setting & B1) { time_temp.set(timer[i].next_on); server.print((char*)time_temp.formatedDateTime());}
+        server.printP(html_e_td_td);
+        // If enabled
+        if (timer[i].setting & B1) {time_temp.set(timer[i].next_off); server.print((char*)time_temp.formatedDateTime());}
+        server.printP(html_e_td_td);
         printNodeAddress(server, 'I', timer[i].to_address, timer[i].to_number, timer[i].to_type);
         server.printP(html_e_td_td);      
         server << timer[i].constant_on; server.printP(html_e_td_td);
@@ -2124,7 +2149,7 @@ void webSetTimers(WebServer &server, WebServer::ConnectionType type, char *url_t
       server.printP(html_table_tr_td);
       server.printP(text_Timer); server.printP(html_e_td_td);
       server.printP(html_select_submit); server << 'P'; server.printP(html_e_tag);
-      for (uint8_t ii = 0; ii < TRIGGERS; ++ii) {
+      for (uint8_t ii = 0; ii < TRIGGERS; ii++) {
         server.printP(html_option); server << ii;
         if (webTimer == ii) { server.printP(html_selected); }
         else                { server.printP(html_e_tag); }
@@ -2166,7 +2191,7 @@ void webSetTimers(WebServer &server, WebServer::ConnectionType type, char *url_t
 
       server.printP(text_Start); server.print(' '); server.printP(text_time); server.printP(html_e_td_td);
       server.printP(html_select); server << 'h'; server.printP(html_e_tag);
-      for (uint8_t ii = 0; ii < 24; ++ii) {
+      for (uint8_t ii = 0; ii < 24; ii++) {
         if ((timer[webTimer].start_time / 60) == ii)  
           { server.printP(html_option); server << ii; server.printP(html_selected); server << ii;}
         else 
@@ -2175,7 +2200,7 @@ void webSetTimers(WebServer &server, WebServer::ConnectionType type, char *url_t
       }
       server.printP(html_e_select); server.printP(text_sesp);
       server.printP(html_select); server << 'm'; server.printP(html_e_tag);
-      for (uint8_t ii = 0; ii < 60; ++ii) {
+      for (uint8_t ii = 0; ii < 60; ii++) {
         if ((timer[webTimer].start_time % 60) == ii)  
           { server.printP(html_option); server << ii; server.printP(html_selected); server << ii;}
         else 
@@ -2210,7 +2235,7 @@ void webSetTimers(WebServer &server, WebServer::ConnectionType type, char *url_t
 
       server.printP(text_To); server.print(' '); server.printP(text_address); server.printP(html_e_td_td);
       server.printP(html_select); server << 't'; server.printP(html_e_tag);
-      for (uint8_t ii = 0; ii < nodes; ++ii) {
+      for (uint8_t ii = 0; ii < nodes; ii++) {
         if (node[ii].function == 'I') {
           server.printP(html_option); server << ii;
           if (node[ii].address == timer[webTimer].to_address &&
@@ -2227,7 +2252,7 @@ void webSetTimers(WebServer &server, WebServer::ConnectionType type, char *url_t
 
       server.printP(text_Assoc); server.print(' '); server.printP(text_trigger); server.printP(html_e_td_td);
       server.printP(html_select); server << 'a'; server.printP(html_e_tag);
-      for (uint8_t ii = 0; ii < TRIGGERS + 1; ++ii) {
+      for (uint8_t ii = 0; ii < TRIGGERS + 1; ii++) {
         server.printP(html_option); server << ii;
         if ( timer[webTimer].asc_trigger == ii) { server.printP(html_selected); }
         else                                    { server.printP(html_e_tag); }
@@ -2319,7 +2344,7 @@ void webSetGlobal(WebServer &server, WebServer::ConnectionType type, char *url_t
       printInput(server, 'o', conf.SMTP_password); server.printP(html_e_td_e_tr_tr_td);
       server.printP(text_Authentication); server.print(' '); server.printP(text_time);server.printP(html_e_td_td);
       server.printP(html_select); server << 'a'; server.printP(html_e_tag);
-      for (uint8_t ii = 5; ii < 26; ++ii) {
+      for (uint8_t ii = 5; ii < 26; ii++) {
         if ((conf.alr_time) == ii)  
           { server.printP(html_option); server << ii; server.printP(html_selected); server << ii;}
         else 
@@ -2331,7 +2356,7 @@ void webSetGlobal(WebServer &server, WebServer::ConnectionType type, char *url_t
       server.printP(text_Arm); server.print(' '); server.printP(text_delay); server.printP(html_e_td_td);
       
       server.printP(html_select); server << 'd'; server.printP(html_e_tag);
-      for (uint8_t ii = 10; ii < 41; ++ii) {
+      for (uint8_t ii = 10; ii < 41; ii++) {
         if ((conf.arm_delay/4) == ii) // 250*4 = 1 sec.
           { server.printP(html_option); server << ii; server.printP(html_selected); server << ii;}
         else 

@@ -264,8 +264,8 @@ P(JSen)             = "en()";
 P(JSdis)            = "dis()";
 P(JScl)             = "cl()";
 P(JSTrigger)        = "<script>"
-		              "var x=document.querySelectorAll(\"#F0,#F1\");"
-				      "var y=document.querySelectorAll(\"#H0,#H1\");";
+		              "var x=document.querySelectorAll(\"#XX\");"
+				      "var y=document.querySelectorAll(\"#F0,#F1,#C0,#C1,#m0,#m1,#m2,#r,#l0,#l1,#l2,#l3,#t,#c,#f\");";
 P(JSTimer)          = "<script>"
 		              "var x=document.querySelectorAll(\"#p,#l0,#l1,#l2,#l3\");"
 				      "var y=document.querySelectorAll(\"#D0,#D1,#E0,#E1,#F0,#F1,#G0,#G1,#H0,#H1,#I0,#I1,#J0,#J1\");";				      
@@ -331,6 +331,7 @@ P(html_form_e)    = "' method='post'>";
 P(html_form_e_CL) = "' method='post'>";
 P(html_e_form)    = "</form>";
 P(html_select)    = "<select name='";
+P(html_id)        = "id ='";
 P(html_select_submit)  = "<select onchange='this.form.submit()' name='";
 P(html_e_select)  = "</select>";
 P(html_s_tag)     = "<input type='text' name='";
@@ -400,7 +401,7 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 ".rc input:disabled~label{color:#333;background:#eee}\n"
 "</style></head>\n<body onload=\"";
 
-P(htmlHead_m) = "\"><div class='wrp'><div class='sb'><div class='tt'>OHS 1.7.6.2</div><ul class='nav'>";
+P(htmlHead_m) = "\"><div class='wrp'><div class='sb'><div class='tt'>OHS 1.7.6.3</div><ul class='nav'>";
 
 P(htmlHead_e) = "</ul></div><div class='mb'>";
 P(htmlFoot)   = "</div></div></body></html>";

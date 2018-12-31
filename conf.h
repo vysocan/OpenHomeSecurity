@@ -95,7 +95,7 @@ void setDefault(){
     for(uint8_t ii = 0; ii < KEY_LEN; ii++) {
       conf.key[i][ii] = 0xFF;
     }
-    conf.key[i][KEY_LEN+1] = 0;
+    // to delete - conf.key[i][KEY_LEN+1] = 0;
     //                        group 16 and disabled
     conf.key_setting[i] = B00011110;
     conf.key_name[i][0] = '-';conf.key_name[i][1] = 0;
