@@ -2206,6 +2206,7 @@ NIL_THREAD(ServiceThread, arg) {
   uint8_t _counter = 0; // used for pause in alarm
   char *  _pch;
   uint32_t group_aa;    // temp var. for Auto arm
+  uint8_t _AC_counter = 0;
 
   nilThdSleepSeconds(1); // Sleep before start service thread
   // Set timers on start
@@ -2403,15 +2404,26 @@ NIL_THREAD(ServiceThread, arg) {
       nilSysUnlock(); // Power is restored we go on      
       pushToLog("SBH"); // Battery High
     }
-    // AC power check
-    if (pinAC_OFF.read() == LOW && ACState != LOW) { // The signal turns to be "High" when the power supply turns OFF
+    
+    // AC power check - The signal turns to be "High" when the power supply turns OFF
+    _resp = 0;
+    // AC pin oversampling, to avoid PSC-35C problems
+    for (int8_t i=0; i < 10; i++){ _resp = _resp + pinAC_OFF.read(); }
+    if (_resp > 7) _resp = 1;
+    else           _resp = 0;
+    // Logic to make alerts only for states longer then 60 seconds
+    if (_resp == LOW && _AC_counter > 0) { _AC_counter--; }
+    if (_resp == LOW && ACState != LOW && _AC_counter == 0) {
       ACState = LOW;
       pushToLog("SAL"); // AC ON
     }
-    if (pinAC_OFF.read() == HIGH && ACState != HIGH) { // The signal turns to be "High" when the power supply turns OFF
+    if (_resp == HIGH && _AC_counter < 60) {_AC_counter++; }
+    if (_resp == HIGH && ACState != HIGH && _AC_counter == 60) {
       ACState = HIGH;
       pushToLog("SAH"); // AC OFF
     }
+    //WS.print(F("AC Pin: ")); WS.print(_resp); WS.print(", Count: "); WS.print(_AC_counter); WS.print(", State: "); WS.print(ACState); WS.println();
+    
     // GSM modem check 
     if (_counter == 15) { 
       // look if GSM is free
@@ -2955,8 +2967,8 @@ NIL_THREAD(DebugThread, arg) {
 //------------------------------------------------------------------------------
 void setup() {
   // Pins setting
-  pinBAT_OK.mode(INPUT);
-  pinAC_OFF.mode(INPUT);
+  pinBAT_OK.config(INPUT, LOW);
+  pinAC_OFF.config(INPUT, LOW);
   pinDE1.mode(OUTPUT);
   pinGSM_PWR.mode(OUTPUT);
   pinOUT1.mode(OUTPUT);

@@ -401,7 +401,7 @@ P(htmlHead_s) = "<!DOCTYPE html><html ><head><meta charset=\"UTF-8\"><title>Open
 ".rc input:disabled~label{color:#333;background:#eee}\n"
 "</style></head>\n<body onload=\"";
 
-P(htmlHead_m) = "\"><div class='wrp'><div class='sb'><div class='tt'>OHS 1.7.6.3</div><ul class='nav'>";
+P(htmlHead_m) = "\"><div class='wrp'><div class='sb'><div class='tt'>OHS 1.7.6.4</div><ul class='nav'>";
 
 P(htmlHead_e) = "</ul></div><div class='mb'>";
 P(htmlFoot)   = "</div></div></body></html>";
