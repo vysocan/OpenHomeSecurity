@@ -1,3 +1,5 @@
+This project is replaced by newer hardware https://github.com/vysocan/OHS_2-gateway
+
 This repository will contain the latest software for main board.
 
 http://openhomesecurity.blogspot.com
